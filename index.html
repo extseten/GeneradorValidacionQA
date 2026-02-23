@@ -218,6 +218,17 @@
             color: var(--gray-dark);
             font-size: 0.75rem;
         }
+        .form-group small code {
+            background: #f0f4ff;
+            color: #1a3a6b;
+            border-radius: 3px;
+            padding: 1px 4px;
+            font-size: 0.72rem;
+            font-family: 'Courier New', monospace;
+        }
+        .form-group small strong {
+            color: #1a3a6b;
+        }
 
         .form-group .error-message {
             color: var(--error-red);
@@ -299,6 +310,37 @@
             height: 16px;
             accent-color: #7B1FA2;
             cursor: pointer;
+        }
+
+        /* Checkbox JOIN adicional */
+        .join-check-group {
+            background: #E8F4FD;
+            border: 1px solid #90CAF9;
+            border-radius: 6px;
+            padding: 8px 14px;
+            margin-bottom: 2px;
+        }
+        .join-check-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #1a3a6b;
+            font-size: 0.875rem;
+        }
+        .join-check-label input[type="checkbox"] {
+            width: 15px;
+            height: 15px;
+            accent-color: #1565C0;
+            cursor: pointer;
+        }
+        .join-textarea-group {
+            margin-top: 4px;
+            padding: 8px 14px 10px;
+            background: #F0F7FF;
+            border: 1px dashed #90CAF9;
+            border-radius: 0 0 6px 6px;
         }
 
         .encrypted-fields {
@@ -1564,12 +1606,21 @@ END"></textarea>
                         </div>
                         <div class="form-group">
                             <label for="filtroOrigen">Filtro WHERE (opcional)</label>
-                            <textarea id="filtroOrigen" placeholder="ej: fecha >= '2024-01-01'"></textarea>
+                            <textarea id="filtroOrigen" placeholder="ej: fecha >= '2024-01-01' AND estado = 'ACTIVO'"></textarea>
+                            <small>⚠️ Solo las condiciones, <strong>sin</strong> la palabra <code>WHERE</code>. Ej: <code>campo = 'valor' AND otro &gt; 100</code></small>
                         </div>
-                        <div class="form-group">
-                            <label for="joinOrigen">JOIN adicional (opcional)</label>
-                            <textarea id="joinOrigen" placeholder="ej: INNER JOIN tabla2 ON tabla1.id = tabla2.id"></textarea>
-                            <small>Para tablas relacionadas</small>
+                        <div class="form-group join-check-group">
+                            <label class="join-check-label">
+                                <input type="checkbox" id="hasJoinOrigen" onchange="toggleJoin('Origen')">
+                                <span>🔗 ¿Tiene JOIN adicional?</span>
+                            </label>
+                        </div>
+                        <div class="join-textarea-group" id="joinOrigenGroup" style="display:none;">
+                            <label for="joinOrigen" style="font-size:0.82rem;color:#1a3a6b;font-weight:600;display:block;margin-bottom:4px;">JOIN adicional — tabla ORIGEN</label>
+                            <textarea id="joinOrigen" placeholder="INNER JOIN `proyecto.dataset.lookup` lk ON o.campo_id = lk.id"></textarea>
+                            <small>⚠️ Escribir la cláusula completa con <code>INNER/LEFT/RIGHT JOIN</code>.<br>
+                            · La tabla <strong>ORIGEN</strong> tiene alias <code>o</code> en <u>todos</u> los queries → <code>ON o.campo = lk.campo</code><br>
+                            · Múltiples JOINs: uno por línea</small>
                         </div>
                     </div>
 
@@ -1600,12 +1651,21 @@ END"></textarea>
                         </div>
                         <div class="form-group">
                             <label for="filtroDestino">Filtro WHERE (opcional)</label>
-                            <textarea id="filtroDestino" placeholder="ej: fecha >= '2024-01-01'"></textarea>
+                            <textarea id="filtroDestino" placeholder="ej: fecha >= '2024-01-01' AND estado = 'ACTIVO'"></textarea>
+                            <small>⚠️ Solo las condiciones, <strong>sin</strong> la palabra <code>WHERE</code>. Ej: <code>campo = 'valor' AND otro &gt; 100</code></small>
                         </div>
-                        <div class="form-group">
-                            <label for="joinDestino">JOIN adicional (opcional)</label>
-                            <textarea id="joinDestino" placeholder="ej: INNER JOIN tabla2 t2 ON t1.id = t2.id&#10;INNER JOIN tabla3 t3 ON t2.id = t3.id"></textarea>
-                            <small>Para tablas relacionadas (ej: 1 tabla origen vs 3 tablas destino)</small>
+                        <div class="form-group join-check-group">
+                            <label class="join-check-label">
+                                <input type="checkbox" id="hasJoinDestino" onchange="toggleJoin('Destino')">
+                                <span>🔗 ¿Tiene JOIN adicional?</span>
+                            </label>
+                        </div>
+                        <div class="join-textarea-group" id="joinDestinoGroup" style="display:none;">
+                            <label for="joinDestino" style="font-size:0.82rem;color:#1a3a6b;font-weight:600;display:block;margin-bottom:4px;">JOIN adicional — tabla DESTINO</label>
+                            <textarea id="joinDestino" placeholder="INNER JOIN `proyecto.dataset.lookup` lk ON d.campo_id = lk.id"></textarea>
+                            <small>⚠️ Escribir la cláusula completa con <code>INNER/LEFT/RIGHT JOIN</code>.<br>
+                            · La tabla <strong>DESTINO</strong> tiene alias <code>d</code> en <u>todos</u> los queries → <code>ON d.campo = lk.campo</code><br>
+                            · Múltiples JOINs: uno por línea</small>
                         </div>
                     </div>
                 </div>
@@ -1642,6 +1702,26 @@ END"></textarea>
         let currentMode = 'ut';
         let currentTableType = 'simple';
         let currentInfoType = 'clear';
+        // ─── JOIN toggle ───────────────────────────────────────────────
+        function toggleJoin(side) {
+            const hasJoin = document.getElementById('hasJoin' + side).checked;
+            const group   = document.getElementById('join' + side + 'Group');
+            if (group) group.style.display = hasJoin ? 'block' : 'none';
+            if (!hasJoin) {
+                const ta = document.getElementById('join' + side);
+                if (ta) ta.value = '';
+            }
+        }
+
+        function resetJoinCheckboxes() {
+            ['Origen', 'Destino'].forEach(side => {
+                const cb = document.getElementById('hasJoin' + side);
+                if (cb) cb.checked = false;
+                toggleJoin(side);
+            });
+        }
+        // ───────────────────────────────────────────────────────────────
+
         function changeMode() {
             currentMode = document.getElementById('modeSelect').value;
             const badge = document.getElementById('modeBadge');
@@ -1689,6 +1769,7 @@ END"></textarea>
                 // Aplicar el tipo de tabla seleccionado (esto mostrará record/different si aplica)
                 changeTableType();
                 changeInfoType();
+                resetJoinCheckboxes();
                 
                 if (currentMode === 'ut') {
                     badge.textContent = 'Pruebas Unitarias';
@@ -3001,8 +3082,8 @@ WHERE table_name = '${v.tablaDestino}'
 SELECT 
     <<COLUMNAS>>,
     COUNT(*) as ocurrencias
-FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\`
-${whereDestino}
+FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` d
+${v.joinDestino ? v.joinDestino + '\n' : ''}${whereDestino}
 GROUP BY <<COLUMNAS>>
 HAVING COUNT(*) > 1
 ORDER BY ocurrencias DESC
@@ -3057,7 +3138,7 @@ SELECT
     COUNT(*) as ocurrencias
 FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` t
 LEFT JOIN UNNEST(t.${v.recordColumnDestino}) r
-${whereDestino}
+${v.joinDestino ? v.joinDestino + '\n' : ''}${whereDestino}
 GROUP BY <<COLUMNAS>>
 HAVING COUNT(*) > 1
 ORDER BY ocurrencias DESC
@@ -3117,12 +3198,12 @@ JOIN DESTINO b ON UPPER(a.column_name) = UPPER(b.column_name);`
 
 WITH
   origen AS (
-    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\`
-    ${filtroOrigenOneLine ? 'WHERE ' + filtroOrigenOneLine : ''}
+    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\` o
+    ${v.joinOrigen ? v.joinOrigen + '\n    ' : ''}${filtroOrigenOneLine ? 'WHERE ' + filtroOrigenOneLine : ''}
   ),
   destino AS (
-    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\`
-    ${filtroDestinoOneLine ? 'WHERE ' + filtroDestinoOneLine : ''}
+    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` d
+    ${v.joinDestino ? v.joinDestino + '\n    ' : ''}${filtroDestinoOneLine ? 'WHERE ' + filtroDestinoOneLine : ''}
   )
 SELECT DISTINCT
     ${pkList.map(pk => `COALESCE(CAST(A.${pk} AS STRING), CAST(B.${pk} AS STRING)) AS ${pk}`).join(',\n    ')},
@@ -3198,12 +3279,12 @@ JOIN DESTINO b ON UPPER(a.field_path) = UPPER(b.field_path);`
 
 WITH
   origen AS (
-    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\`
-    ${v.filtroOrigen ? 'WHERE ' + v.filtroOrigen : ''}
+    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\` o
+    ${v.joinOrigen ? v.joinOrigen + '\n    ' : ''}${v.filtroOrigen ? 'WHERE ' + v.filtroOrigen : ''}
   ),
   destino AS (
-    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\`
-    ${v.filtroDestino ? 'WHERE ' + v.filtroDestino : ''}
+    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` d
+    ${v.joinDestino ? v.joinDestino + '\n    ' : ''}${v.filtroDestino ? 'WHERE ' + v.filtroDestino : ''}
   )
 SELECT DISTINCT
     ${pkList.map(pk => `COALESCE(CAST(o.${pk} AS STRING), CAST(d.${pk} AS STRING)) AS ${pk}`).join(',\n    ')},
@@ -3274,12 +3355,12 @@ JOIN DESTINO b ON UPPER(a.column_name) = UPPER(b.column_name);`
 
 WITH
   origen AS (
-    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\`
-    ${filtroOrigenOneLine ? 'WHERE ' + filtroOrigenOneLine : ''}
+    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\` o
+    ${v.joinOrigen ? v.joinOrigen + '\n    ' : ''}${filtroOrigenOneLine ? 'WHERE ' + filtroOrigenOneLine : ''}
   ),
   destino AS (
-    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\`
-    ${filtroDestinoOneLine ? 'WHERE ' + filtroDestinoOneLine : ''}
+    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` d
+    ${v.joinDestino ? v.joinDestino + '\n    ' : ''}${filtroDestinoOneLine ? 'WHERE ' + filtroDestinoOneLine : ''}
   ),
   joined AS (
     SELECT
@@ -3349,12 +3430,12 @@ JOIN campos_record_destino b ON UPPER(a.campo) = UPPER(b.campo);`
 
 WITH
   origen AS (
-    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\`
-    ${v.filtroOrigen ? 'WHERE ' + v.filtroOrigen : ''}
+    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\` o
+    ${v.joinOrigen ? v.joinOrigen + '\n    ' : ''}${v.filtroOrigen ? 'WHERE ' + v.filtroOrigen : ''}
   ),
   destino AS (
-    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\`
-    ${v.filtroDestino ? 'WHERE ' + v.filtroDestino : ''}
+    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` d
+    ${v.joinDestino ? v.joinDestino + '\n    ' : ''}${v.filtroDestino ? 'WHERE ' + v.filtroDestino : ''}
   ),
   joined AS (
     SELECT
@@ -3601,8 +3682,8 @@ WHERE table_name = '${v.tablaDestino}'
 SELECT 
     <<COLUMNAS>>,
     COUNT(*) as ocurrencias
-FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\`
-${whereDestino}
+FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` d
+${v.joinDestino ? v.joinDestino + '\n' : ''}${whereDestino}
 GROUP BY <<COLUMNAS>>
 HAVING COUNT(*) > 1
 ORDER BY ocurrencias DESC
@@ -3657,7 +3738,7 @@ SELECT
     COUNT(*) as ocurrencias
 FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` t
 LEFT JOIN UNNEST(t.${v.recordColumnDestino}) r
-${whereDestino}
+${v.joinDestino ? v.joinDestino + '\n' : ''}${whereDestino}
 GROUP BY <<COLUMNAS>>
 HAVING COUNT(*) > 1
 ORDER BY ocurrencias DESC
@@ -3800,12 +3881,12 @@ JOIN DESTINO b ON UPPER(a.field_path) = UPPER(b.field_path);`
 
 WITH
   origen AS (
-    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\`
-    ${v.filtroOrigen ? 'WHERE ' + v.filtroOrigen : ''}
+    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\` o
+    ${v.joinOrigen ? v.joinOrigen + '\n    ' : ''}${v.filtroOrigen ? 'WHERE ' + v.filtroOrigen : ''}
   ),
   destino AS (
-    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\`
-    ${v.filtroDestino ? 'WHERE ' + v.filtroDestino : ''}
+    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` d
+    ${v.joinDestino ? v.joinDestino + '\n    ' : ''}${v.filtroDestino ? 'WHERE ' + v.filtroDestino : ''}
   )
 SELECT DISTINCT
     ${pkList.map(pk => `COALESCE(CAST(o.${pk} AS STRING), CAST(d.${pk} AS STRING)) AS ${pk}`).join(',\n    ')},
@@ -3951,12 +4032,12 @@ JOIN campos_record_destino b ON UPPER(a.campo) = UPPER(b.campo);`
 
 WITH
   origen AS (
-    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\`
-    ${v.filtroOrigen ? 'WHERE ' + v.filtroOrigen : ''}
+    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\` o
+    ${v.joinOrigen ? v.joinOrigen + '\n    ' : ''}${v.filtroOrigen ? 'WHERE ' + v.filtroOrigen : ''}
   ),
   destino AS (
-    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\`
-    ${v.filtroDestino ? 'WHERE ' + v.filtroDestino : ''}
+    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` d
+    ${v.joinDestino ? v.joinDestino + '\n    ' : ''}${v.filtroDestino ? 'WHERE ' + v.filtroDestino : ''}
   ),
   joined AS (
     SELECT
@@ -4103,8 +4184,8 @@ WHERE table_name = '${v.tablaDestino}'
 SELECT 
     <<COLUMNAS>>,
     COUNT(*) as ocurrencias
-FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\`
-${whereDestino}
+FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` d
+${v.joinDestino ? v.joinDestino + '\n' : ''}${whereDestino}
 GROUP BY <<COLUMNAS>>
 HAVING COUNT(*) > 1
 ORDER BY ocurrencias DESC
@@ -4145,12 +4226,12 @@ LIMIT 100;`
 
 WITH
   origen AS (
-    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\`
-    ${filtroOrigenOneLine ? 'WHERE ' + filtroOrigenOneLine : ''}
+    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\` o
+    ${v.joinOrigen ? v.joinOrigen + '\n    ' : ''}${filtroOrigenOneLine ? 'WHERE ' + filtroOrigenOneLine : ''}
   ),
   destino AS (
-    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\`
-    ${filtroDestinoOneLine ? 'WHERE ' + filtroDestinoOneLine : ''}
+    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` d
+    ${v.joinDestino ? v.joinDestino + '\n    ' : ''}${filtroDestinoOneLine ? 'WHERE ' + filtroDestinoOneLine : ''}
   )
 SELECT DISTINCT
     ${pkSelectList},
@@ -4467,12 +4548,12 @@ END AS estado_nombre_completo,`
 
 WITH
   origen AS (
-    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\`
-    ${filtroOrigenOneLine ? 'WHERE ' + filtroOrigenOneLine : ''}
+    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\` o
+    ${v.joinOrigen ? v.joinOrigen + '\n    ' : ''}${filtroOrigenOneLine ? 'WHERE ' + filtroOrigenOneLine : ''}
   ),
   destino AS (
-    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\`
-    ${filtroDestinoOneLine ? 'WHERE ' + filtroDestinoOneLine : ''}
+    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` d
+    ${v.joinDestino ? v.joinDestino + '\n    ' : ''}${filtroDestinoOneLine ? 'WHERE ' + filtroDestinoOneLine : ''}
   )
 SELECT DISTINCT
     ${pkSelectList},
@@ -4552,12 +4633,12 @@ JOIN DESTINO b ON UPPER(a.column_name) = UPPER(b.column_name);`
 
 WITH
   origen AS (
-    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\`
-    ${filtroOrigenOneLine ? 'WHERE ' + filtroOrigenOneLine : ''}
+    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\` o
+    ${v.joinOrigen ? v.joinOrigen + '\n    ' : ''}${filtroOrigenOneLine ? 'WHERE ' + filtroOrigenOneLine : ''}
   ),
   destino AS (
-    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\`
-    ${filtroDestinoOneLine ? 'WHERE ' + filtroDestinoOneLine : ''}
+    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` d
+    ${v.joinDestino ? v.joinDestino + '\n    ' : ''}${filtroDestinoOneLine ? 'WHERE ' + filtroDestinoOneLine : ''}
   ),
   joined AS (
     SELECT
@@ -4627,12 +4708,12 @@ JOIN campos_record_destino b ON UPPER(a.campo) = UPPER(b.campo);`
 
 WITH
   origen AS (
-    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\`
-    ${v.filtroOrigen ? 'WHERE ' + v.filtroOrigen : ''}
+    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\` o
+    ${v.joinOrigen ? v.joinOrigen + '\n    ' : ''}${v.filtroOrigen ? 'WHERE ' + v.filtroOrigen : ''}
   ),
   destino AS (
-    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\`
-    ${v.filtroDestino ? 'WHERE ' + v.filtroDestino : ''}
+    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` d
+    ${v.joinDestino ? v.joinDestino + '\n    ' : ''}${v.filtroDestino ? 'WHERE ' + v.filtroDestino : ''}
   ),
   joined AS (
     SELECT
@@ -4682,12 +4763,12 @@ FROM joined;`
 
 WITH
   origen AS (
-    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\`
-    ${filtroOrigenOneLine ? 'WHERE ' + filtroOrigenOneLine : ''}
+    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\` o
+    ${v.joinOrigen ? v.joinOrigen + '\n    ' : ''}${filtroOrigenOneLine ? 'WHERE ' + filtroOrigenOneLine : ''}
   ),
   destino AS (
-    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\`
-    ${filtroDestinoOneLine ? 'WHERE ' + filtroDestinoOneLine : ''}
+    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` d
+    ${v.joinDestino ? v.joinDestino + '\n    ' : ''}${filtroDestinoOneLine ? 'WHERE ' + filtroDestinoOneLine : ''}
   ),
   joined AS (
     SELECT
@@ -4773,12 +4854,12 @@ FROM matches;`
 
 WITH
   origen AS (
-    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\`
-    ${filtroOrigenOneLine ? 'WHERE ' + filtroOrigenOneLine : ''}
+    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\` o
+    ${v.joinOrigen ? v.joinOrigen + '\n    ' : ''}${filtroOrigenOneLine ? 'WHERE ' + filtroOrigenOneLine : ''}
   ),
   destino AS (
-    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\`
-    ${filtroDestinoOneLine ? 'WHERE ' + filtroDestinoOneLine : ''}
+    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` d
+    ${v.joinDestino ? v.joinDestino + '\n    ' : ''}${filtroDestinoOneLine ? 'WHERE ' + filtroDestinoOneLine : ''}
   ),
   joined AS (
     SELECT
@@ -5027,8 +5108,8 @@ WHERE table_name = '${v.tablaDestino}'
 SELECT 
     <<COLUMNAS>>,
     COUNT(*) as ocurrencias
-FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\`
-${whereDestino}
+FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` d
+${v.joinDestino ? v.joinDestino + '\n' : ''}${whereDestino}
 GROUP BY <<COLUMNAS>>
 HAVING COUNT(*) > 1
 ORDER BY ocurrencias DESC
@@ -5067,12 +5148,12 @@ LIMIT 100;`
 
 WITH
   origen AS (
-    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\`
-    ${filtroOrigenOneLine ? 'WHERE ' + filtroOrigenOneLine : ''}
+    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\` o
+    ${v.joinOrigen ? v.joinOrigen + '\n    ' : ''}${filtroOrigenOneLine ? 'WHERE ' + filtroOrigenOneLine : ''}
   ),
   destino AS (
-    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\`
-    ${filtroDestinoOneLine ? 'WHERE ' + filtroDestinoOneLine : ''}
+    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` d
+    ${v.joinDestino ? v.joinDestino + '\n    ' : ''}${filtroDestinoOneLine ? 'WHERE ' + filtroDestinoOneLine : ''}
   )
 SELECT DISTINCT
     ${pkSelectList},
@@ -5389,12 +5470,12 @@ END AS estado_nombre_completo,`
 
 WITH
   origen AS (
-    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\`
-    ${filtroOrigenOneLine ? 'WHERE ' + filtroOrigenOneLine : ''}
+    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\` o
+    ${v.joinOrigen ? v.joinOrigen + '\n    ' : ''}${filtroOrigenOneLine ? 'WHERE ' + filtroOrigenOneLine : ''}
   ),
   destino AS (
-    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\`
-    ${filtroDestinoOneLine ? 'WHERE ' + filtroDestinoOneLine : ''}
+    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` d
+    ${v.joinDestino ? v.joinDestino + '\n    ' : ''}${filtroDestinoOneLine ? 'WHERE ' + filtroDestinoOneLine : ''}
   )
 SELECT DISTINCT
     ${pkSelectList},
@@ -5454,12 +5535,12 @@ LIMIT 1000;`
 
 WITH
   origen AS (
-    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\`
-    ${filtroOrigenOneLine ? 'WHERE ' + filtroOrigenOneLine : ''}
+    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\` o
+    ${v.joinOrigen ? v.joinOrigen + '\n    ' : ''}${filtroOrigenOneLine ? 'WHERE ' + filtroOrigenOneLine : ''}
   ),
   destino AS (
-    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\`
-    ${filtroDestinoOneLine ? 'WHERE ' + filtroDestinoOneLine : ''}
+    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` d
+    ${v.joinDestino ? v.joinDestino + '\n    ' : ''}${filtroDestinoOneLine ? 'WHERE ' + filtroDestinoOneLine : ''}
   ),
   joined AS (
     SELECT
@@ -5545,12 +5626,12 @@ FROM matches;`
 
 WITH
   origen AS (
-    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\`
-    ${filtroOrigenOneLine ? 'WHERE ' + filtroOrigenOneLine : ''}
+    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\` o
+    ${v.joinOrigen ? v.joinOrigen + '\n    ' : ''}${filtroOrigenOneLine ? 'WHERE ' + filtroOrigenOneLine : ''}
   ),
   destino AS (
-    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\`
-    ${filtroDestinoOneLine ? 'WHERE ' + filtroDestinoOneLine : ''}
+    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` d
+    ${v.joinDestino ? v.joinDestino + '\n    ' : ''}${filtroDestinoOneLine ? 'WHERE ' + filtroDestinoOneLine : ''}
   ),
   joined AS (
     SELECT
@@ -5673,8 +5754,8 @@ FROM joined;`
 
 WITH conteos AS (
     SELECT
-        (SELECT COUNT(*) FROM \`${tablaOrigen}\` ${whereOrigen}) AS cnt_origen,
-        (SELECT COUNT(*) FROM \`${tablaDestino}\` ${whereDestino}) AS cnt_destino
+        (SELECT COUNT(*) FROM \`${tablaOrigen}\` o ${v.joinOrigen ? v.joinOrigen + ' ' : ''}${whereOrigen}) AS cnt_origen,
+        (SELECT COUNT(*) FROM \`${tablaDestino}\` d ${v.joinDestino ? v.joinDestino + ' ' : ''}${whereDestino}) AS cnt_destino
 )
 SELECT
     cnt_origen  AS registros_origen,
@@ -6107,14 +6188,26 @@ FROM campos;`
                 ['- <<COLUMNAS>>: Lista de columnas separadas por coma'],
                 ['- <<BLOQUE>>: Bloque de comparación generado por query auxiliar'],
                 [''],
-                ['CRITERIOS DE ÉXITO:'],
-                ['- UT-01/R04: diferencia = 0, estado = PASS'],
-                ['- UT-02/R06: 0 registros duplicados'],
-                ['- UT-03/R07: 0 registros con diferencias'],
-                ['- R01: Tabla existe con fechas'],
-                ['- R02: 0 columnas faltantes'],
-                ['- R03: 0 tipos diferentes'],
-                ['- R05: estado = PASS (0 nulos)'],
+                ...(currentInfoType === 'encrypted' ? [
+                    ['PASOS PARA REGLAS ENCRIPTADAS (E01-E04 / RE01-RE04):'],
+                    ['- E01/RE01: Ejecutar directamente. Resultado esperado: diferencia = 0, estado = PASS.'],
+                    ['- E02/RE02 (Top 5 Valores):'],
+                    ['  1. Ejecutar el Meta-Query (columna "Query Auxiliar") → obtiene campo sql_generado'],
+                    ['  2. Copiar el contenido de sql_generado'],
+                    ['  3. Pegar y ejecutar en BigQuery → compara STRING (origen) vs HEX (destino)'],
+                    ['- E03/RE03 (Nulos/Vacíos): mismos 3 pasos que E02'],
+                    ['- E04/RE04 (Longitud): mismos 3 pasos que E02'],
+                ] : [
+                    ['CRITERIOS DE ÉXITO:'],
+                    ['- UT-01/R04: diferencia = 0, estado = PASS'],
+                    ['- UT-02/R06: 0 registros duplicados'],
+                    ['- UT-03/R07: 0 registros con diferencias'],
+                    ['- UT-04/R08: 0 registros con diferencias'],
+                    ['- R01: Tabla existe con fechas'],
+                    ['- R02: 0 columnas faltantes'],
+                    ['- R03: 0 tipos diferentes'],
+                    ['- R05: estado = PASS (0 nulos)'],
+                ]),
                 [''],
                 ['Generado el: ' + now.toLocaleString()],
                 ['Modo: ' + (currentMode === 'ut' ? 'Pruebas Unitarias' : 'Validación QA')],
@@ -6155,6 +6248,13 @@ FROM campos;`
             ];
             XLSX.utils.book_append_sheet(wb, wsInputs, 'Inputs');
 
+            // Para encriptado: exportar E01 (directo) + META queries (E02, E03, E04)
+            // Para otros modos: exportar solo queries NO auxiliares (FINAL y directos)
+            const isEncrypted = currentInfoType === 'encrypted';
+            const queriesToExport = isEncrypted
+                ? queries.filter(q => !q.isAuxiliary || q.code.includes('-META'))
+                : queries.filter(q => !q.isAuxiliary);
+
             // Sheet 3: Resultados y Queries combinados
             const resultsData = [
                 ['RESULTADOS DE VALIDACIÓN'],
@@ -6165,53 +6265,67 @@ FROM campos;`
                 ['Ejecutado por:', ''],
                 [''],
                 ['RESUMEN'],
-                ['Total Reglas:', queries.filter(q => !q.isAuxiliary).length],
+                ['Total Reglas:', queriesToExport.length],
                 ['Reglas PASS:', ''],
                 ['Reglas FAIL:', ''],
                 ['% Cumplimiento:', ''],
                 [''],
                 ['DETALLE DE REGLAS'],
-                ['Código', 'Regla', 'Tipo', 'Query Auxiliar', 'Query Final', 'Resultado Esperado', 'Resultado Obtenido', 'Estado', 'Fecha Ejecución Regla', 'Observación']
+                ['Código', 'Regla', 'Tipo', 'Query Auxiliar (o Meta-Query)', 'Query Final', 'Resultado Esperado', 'Resultado Obtenido', 'Estado', 'Fecha Ejecución Regla', 'Observación']
             ];
             
-            queries.filter(q => !q.isAuxiliary).forEach(q => {
+            queriesToExport.forEach(q => {
                 let expectedResult = '';
-                const baseCode = q.code.replace('-FINAL', '');
+                const isMeta = q.code.includes('-META');
+                const baseCode = q.code.replace('-FINAL', '').replace('-META', '');
+
+                // Mapeo de resultados esperados
                 if (baseCode === 'UT-01' || baseCode === 'R04') expectedResult = 'diferencia = 0, estado = PASS';
                 else if (baseCode === 'UT-02' || baseCode === 'R06') expectedResult = '0 duplicados';
-                else if (baseCode === 'UT-03' || baseCode === 'R07') expectedResult = '0 diferencias';
+                else if (baseCode === 'UT-03' || baseCode === 'R07') expectedResult = '0 diferencias (LIMIT 1000)';
+                else if (baseCode === 'UT-04' || baseCode === 'R08') expectedResult = '0 registros con diferencias';
                 else if (baseCode === 'R01') expectedResult = 'Tabla existe + fechas';
                 else if (baseCode === 'R02') expectedResult = '0 columnas faltantes';
                 else if (baseCode === 'R03') expectedResult = '0 tipos diferentes';
                 else if (baseCode === 'R05' || q.code === 'R05') expectedResult = 'estado = PASS (0 nulos)';
-                else if (baseCode.includes('E01') || baseCode.includes('E01')) expectedResult = 'Distribución comparable origen-destino';
-                else if (baseCode.includes('E02') || baseCode.includes('E02')) expectedResult = 'Misma cantidad de nulos en origen y destino';
-                else if (baseCode.includes('E03') || baseCode.includes('E03')) expectedResult = 'Longitudes consistentes en destino (encriptación fija)';
-                
-                // Buscar queries auxiliares relacionados (pueden ser múltiples: AUX, AUX1, AUX2, AUX3, AUX4)
-                const auxQueries = queries.filter(aux => 
-                    aux.isAuxiliary && 
-                    (aux.code === baseCode + '-AUX' || 
-                     aux.code === baseCode + '-AUX1' || 
-                     aux.code === baseCode + '-AUX2' ||
-                     aux.code === baseCode + '-AUX3' ||
-                     aux.code === baseCode + '-AUX4')
-                );
-                
+                // Encriptadas: E01 = conteo, E02 = top5, E03 = nulos, E04 = longitud
+                else if (/E01$/.test(baseCode)) expectedResult = 'diferencia = 0, estado = PASS';
+                else if (/E02$/.test(baseCode)) expectedResult = 'Distribución de valores comparable (STRING vs HEX)';
+                else if (/E03$/.test(baseCode)) expectedResult = 'nulos ORIGEN = nulos DESTINO por campo';
+                else if (/E04$/.test(baseCode)) expectedResult = 'Longitudes BYTES consistentes (encriptación determinística)';
+
                 let queryAux = 'N/A (directo)';
-                if (auxQueries.length === 1) {
-                    queryAux = auxQueries[0].query;
-                } else if (auxQueries.length > 1) {
-                    queryAux = auxQueries.map(aq => `-- ${aq.code} --\n${aq.query}`).join('\n\n');
-                }
-                
-                const queryFinal = q.query;
+                let queryFinal = q.query;
                 let tipo = 'Directo';
-                if (q.code.includes('FINAL')) {
-                    if (auxQueries.length >= 4) tipo = '5 pasos';
-                    else if (auxQueries.length === 3) tipo = '4 pasos';
-                    else if (auxQueries.length === 2) tipo = '3 pasos';
-                    else if (auxQueries.length === 1) tipo = '2 pasos';
+
+                if (isMeta) {
+                    // Meta-query: la query ES el PASO 1; el "final" es la instrucción del PASO 2
+                    queryAux = q.query;
+                    queryFinal = '(PASO 2) Copiar el resultado del campo "sql_generado" y ejecutarlo directamente en BigQuery como una nueva consulta.';
+                    tipo = 'Meta-Query (2 pasos)';
+                } else {
+                    // Buscar queries auxiliares relacionados (AUX, AUX1, AUX2, AUX3, AUX4)
+                    const auxQueries = queries.filter(aux => 
+                        aux.isAuxiliary && 
+                        (aux.code === baseCode + '-AUX' || 
+                         aux.code === baseCode + '-AUX1' || 
+                         aux.code === baseCode + '-AUX2' ||
+                         aux.code === baseCode + '-AUX3' ||
+                         aux.code === baseCode + '-AUX4')
+                    );
+
+                    if (auxQueries.length === 1) {
+                        queryAux = auxQueries[0].query;
+                    } else if (auxQueries.length > 1) {
+                        queryAux = auxQueries.map(aq => `-- ${aq.code} --\n${aq.query}`).join('\n\n');
+                    }
+
+                    if (q.code.includes('FINAL')) {
+                        if (auxQueries.length >= 4) tipo = '5 pasos';
+                        else if (auxQueries.length === 3) tipo = '4 pasos';
+                        else if (auxQueries.length === 2) tipo = '3 pasos';
+                        else if (auxQueries.length === 1) tipo = '2 pasos';
+                    }
                 }
                 
                 resultsData.push([
