@@ -1,11 +1,11 @@
 ﻿<!DOCTYPE html>
 <!-- Desarrollado por Sergio Tena -->
-<!-- v3: Tabla Encriptada + Fix UT Diferente Estructura -->
+<!-- v5: Agrega checkbox "Queries adicionales" (Query para desencriptar tabla + Reporte de casuísticas) -->
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Generador de Queries - Validación de Calidad de Datos v3</title>
+    <title>Generador de Queries - Validación de Calidad de Datos v5</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         :root {
@@ -334,6 +334,110 @@
             height: 15px;
             accent-color: #1565C0;
             cursor: pointer;
+        }
+        .step-check-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #1b5e20;
+            cursor: pointer;
+            padding: 6px 14px;
+            border: 2px solid #2e7d32;
+            border-radius: 8px;
+            background: #f1f8e9;
+            transition: background 0.2s;
+        }
+        .step-check-label:hover {
+            background: #dcedc8;
+        }
+        .step-check-label input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: #2e7d32;
+            cursor: pointer;
+        }
+        /* Checkbox Queries Adicionales */
+        .queries-adicionales-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #5d4037;
+            cursor: pointer;
+            padding: 6px 14px;
+            border: 2px solid #8d6e63;
+            border-radius: 8px;
+            background: #efebe9;
+            transition: background 0.2s;
+        }
+        .queries-adicionales-label:hover {
+            background: #d7ccc8;
+        }
+        .queries-adicionales-label input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: #6d4c41;
+            cursor: pointer;
+        }
+        /* Banner de acceso al Desencriptador */
+        .decryptor-banner {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            background: linear-gradient(135deg, #e8f5e9 0%, #f3e5f5 100%);
+            border: 2px solid #7b1fa2;
+            border-radius: 10px;
+            padding: 14px 20px;
+            margin-bottom: 20px;
+        }
+        .decryptor-banner .decryptor-icon {
+            font-size: 2rem;
+            flex-shrink: 0;
+        }
+        .decryptor-banner .decryptor-text {
+            flex: 1;
+            font-size: 0.9rem;
+            color: #4a148c;
+            line-height: 1.4;
+        }
+        .decryptor-banner .decryptor-text strong {
+            display: block;
+            font-size: 1rem;
+            margin-bottom: 2px;
+        }
+        .btn-decryptor {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #7b1fa2;
+            color: white;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 0.9rem;
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .btn-decryptor:hover {
+            background: #6a1b9a;
+            transform: translateY(-1px);
+        }
+        .btn-decryptor:active {
+            transform: translateY(0);
+        }
+        .generate-row {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
         }
         .join-textarea-group {
             margin-top: 4px;
@@ -1672,9 +1776,19 @@ END"></textarea>
 
                 </div><!-- End standardFields -->
 
-                <button class="btn-generate" id="generateQueriesBtn" onclick="generateQueries()">
-                    ⚡ Generar Queries
-                </button>
+                <div class="generate-row">
+                    <label class="step-check-label">
+                        <input type="checkbox" id="stepByStepCheck">
+                        📋 Ejecución por pasos
+                    </label>
+                    <button class="btn-generate" id="generateQueriesBtn" onclick="generateQueries()">
+                        ⚡ Generar Queries
+                    </button>
+                    <label class="queries-adicionales-label">
+                        <input type="checkbox" id="queriesAdicionalesCheck">
+                        🔍 Queries adicionales
+                    </label>
+                </div>
             </div>
         </div>
 
@@ -1771,6 +1885,9 @@ END"></textarea>
                 changeInfoType();
                 resetJoinCheckboxes();
                 
+                // Asegurar que el checkbox "Tiene campos BYTES" se muestre correctamente
+                updateBytesCheckboxVisibility();
+                
                 if (currentMode === 'ut') {
                     badge.textContent = 'Pruebas Unitarias';
                     badge.style.background = '#0066CC';
@@ -1786,7 +1903,8 @@ END"></textarea>
                 }
             }
 
-            document.getElementById('queriesGrid').innerHTML = '';
+            const queriesGrid = document.getElementById('queriesGrid');
+            if (queriesGrid) queriesGrid.innerHTML = '';
         }
 
         // ============================================
@@ -2810,38 +2928,57 @@ LIMIT 100;`;
         // FIN FUNCIONES DE PIPELINE
         // ============================================
 
+        // Función auxiliar para actualizar visibilidad del checkbox "Tiene campos BYTES"
+        function updateBytesCheckboxVisibility() {
+            const bytesOrigenGroup = document.getElementById('bytesOrigenGroup');
+            const bytesDestinoGroup = document.getElementById('bytesDestinoGroup');
+            
+            // Mostrar checkbox si:
+            // - Tipo de información es "encrypted" (siempre)
+            // - Tipo de tabla es "simple" (siempre, para "En claro")
+            // - Tipo de tabla es "record" (siempre, para "En claro")
+            // - Tipo de tabla es "different" (siempre, para "En claro")
+            const showBytesChecks = currentInfoType === 'encrypted' || 
+                                   currentTableType === 'record' || 
+                                   currentTableType === 'simple' ||
+                                   currentTableType === 'different';
+            
+            if (bytesOrigenGroup) {
+                bytesOrigenGroup.style.display = showBytesChecks ? 'block' : 'none';
+            }
+            if (bytesDestinoGroup) {
+                bytesDestinoGroup.style.display = showBytesChecks ? 'block' : 'none';
+            }
+        }
+
         function changeTableType() {
-            currentTableType = document.getElementById('tableTypeSelect').value;
+            const tableTypeSelect = document.getElementById('tableTypeSelect');
+            if (!tableTypeSelect) return;
+            
+            currentTableType = tableTypeSelect.value;
             const badge = document.getElementById('tableTypeBadge');
             const recordFields = document.getElementById('recordFields');
             const differentFields = document.getElementById('differentFields');
-            const sharedPKField = document.getElementById('primaryKeys').parentElement;
+            const sharedPKField = document.getElementById('primaryKeys')?.parentElement;
 
             // Ocultar todos los campos especiales de tipo tabla
-            recordFields.classList.remove('visible');
-            differentFields.classList.remove('visible');
-            sharedPKField.style.display = 'block';
+            if (recordFields) recordFields.classList.remove('visible');
+            if (differentFields) differentFields.classList.remove('visible');
+            if (sharedPKField) sharedPKField.style.display = 'block';
 
             if (currentTableType === 'simple') {
-                badge.textContent = 'Tabla Simple';
-                badge.style.background = '#28a745';
+                if (badge) { badge.textContent = 'Tabla Simple'; badge.style.background = '#28a745'; }
             } else if (currentTableType === 'record') {
-                badge.textContent = 'Tabla con RECORD';
-                badge.style.background = '#FF6600';
-                recordFields.classList.add('visible');
+                if (badge) { badge.textContent = 'Tabla con RECORD'; badge.style.background = '#FF6600'; }
+                if (recordFields) recordFields.classList.add('visible');
             } else if (currentTableType === 'different') {
-                badge.textContent = 'Diferente Estructura';
-                badge.style.background = '#4CAF50';
-                differentFields.classList.add('visible');
-                sharedPKField.style.display = 'none'; // Ocultar PK común porque se usa el mapeo
+                if (badge) { badge.textContent = 'Diferente Estructura'; badge.style.background = '#4CAF50'; }
+                if (differentFields) differentFields.classList.add('visible');
+                if (sharedPKField) sharedPKField.style.display = 'none'; // Ocultar PK común porque se usa el mapeo
             }
 
-            // Actualizar checkboxes "tiene bytes": mostrar en RECORD (sin importar infoType) o en encrypted
-            const bytesOrigenGroup = document.getElementById('bytesOrigenGroup');
-            const bytesDestinoGroup = document.getElementById('bytesDestinoGroup');
-            const showBytesChecks = currentInfoType === 'encrypted' || currentTableType === 'record' || currentTableType === 'simple';
-            if (bytesOrigenGroup) bytesOrigenGroup.style.display = showBytesChecks ? 'block' : 'none';
-            if (bytesDestinoGroup) bytesDestinoGroup.style.display = showBytesChecks ? 'block' : 'none';
+            // Actualizar visibilidad del checkbox "Tiene campos BYTES"
+            updateBytesCheckboxVisibility();
 
             // Si está en modo encriptado, actualizar la nota según el nuevo tipo de tabla
             if (currentInfoType === 'encrypted') {
@@ -2855,27 +2992,30 @@ LIMIT 100;`;
                 }
             }
 
-            document.getElementById('queriesGrid').innerHTML = '';
+            const queriesGrid = document.getElementById('queriesGrid');
+            if (queriesGrid) queriesGrid.innerHTML = '';
         }
 
         function changeInfoType() {
-            currentInfoType = document.getElementById('infoTypeSelect').value;
+            const infoTypeSelect = document.getElementById('infoTypeSelect');
+            if (!infoTypeSelect) return;
+            
+            currentInfoType = infoTypeSelect.value;
             const encryptedFields = document.getElementById('encryptedFields');
-            const sharedPKField = document.getElementById('primaryKeys').parentElement;
+            const sharedPKField = document.getElementById('primaryKeys')?.parentElement;
             const infoBadge = document.getElementById('infoTypeBadge');
-            const bytesOrigenGroup = document.getElementById('bytesOrigenGroup');
-            const bytesDestinoGroup = document.getElementById('bytesDestinoGroup');
             const encryptedTypeNote = document.getElementById('encryptedTypeNote');
-
-            // Determinar si mostrar checkboxes: siempre en encrypted, y también en RECORD+clear
-            const showBytesChecks = currentInfoType === 'encrypted' || currentTableType === 'record' || currentTableType === 'simple';
 
             if (currentInfoType === 'encrypted') {
                 // Mostrar sección info encriptado
                 if (encryptedFields) encryptedFields.classList.add('visible');
                 // No se necesita PK para encriptadas
-                sharedPKField.style.display = 'none';
-                if (infoBadge) { infoBadge.textContent = '🔐 Encriptado'; infoBadge.style.display = 'inline'; infoBadge.style.background = '#7B1FA2'; }
+                if (sharedPKField) sharedPKField.style.display = 'none';
+                if (infoBadge) { 
+                    infoBadge.textContent = '🔐 Encriptado'; 
+                    infoBadge.style.display = 'inline'; 
+                    infoBadge.style.background = '#7B1FA2'; 
+                }
                 // Nota según tipo de tabla
                 if (encryptedTypeNote) {
                     if (currentTableType === 'record') {
@@ -2887,15 +3027,15 @@ LIMIT 100;`;
             } else {
                 if (encryptedFields) encryptedFields.classList.remove('visible');
                 // Restaurar visibilidad de PK según tipo de tabla
-                sharedPKField.style.display = currentTableType === 'different' ? 'none' : 'block';
+                if (sharedPKField) sharedPKField.style.display = currentTableType === 'different' ? 'none' : 'block';
                 if (infoBadge) infoBadge.style.display = 'none';
             }
 
-            // Mostrar/ocultar checkboxes según combinación
-            if (bytesOrigenGroup) bytesOrigenGroup.style.display = showBytesChecks ? 'block' : 'none';
-            if (bytesDestinoGroup) bytesDestinoGroup.style.display = showBytesChecks ? 'block' : 'none';
+            // Actualizar visibilidad del checkbox "Tiene campos BYTES"
+            updateBytesCheckboxVisibility();
 
-            document.getElementById('queriesGrid').innerHTML = '';
+            const queriesGrid = document.getElementById('queriesGrid');
+            if (queriesGrid) queriesGrid.innerHTML = '';
         }
 
         function validateForm() {
@@ -3022,6 +3162,7 @@ LIMIT 100;`;
             const bytesFilterOrigen = v.origenHasBytes ? `\n    AND data_type ${bytesOpUT}` : '';
             const bytesFilterDestino = v.destinoHasBytes ? `\n    AND data_type ${bytesOpUT}` : '';
 
+            const stepByStep = document.getElementById('stepByStepCheck')?.checked ?? false;
             const queries = [];
 
             // UT-01: Conteo de registros con diferencia y estado
@@ -3052,14 +3193,16 @@ FROM conteos;`
             });
 
             // UT-02 depende del tipo de tabla
-            if (currentTableType === 'simple') {
-                // UT-02 AUXILIAR para tabla simple
-                queries.push({
-                    code: 'UT-02-AUX',
-                    title: 'UT-02 Auxiliar: Obtener Columnas para Duplicados',
-                    description: 'PASO 1: Ejecutar primero para obtener las columnas del destino',
-                    isAuxiliary: true,
-                    query: `-- UT-02 AUXILIAR: Obtener columnas para validar duplicados
+            if (stepByStep) {
+                // ─── Modo: Ejecución por pasos (AUX + FINAL) ───
+                if (currentTableType === 'simple') {
+                    // UT-02 AUXILIAR para tabla simple
+                    queries.push({
+                        code: 'UT-02-AUX',
+                        title: 'UT-02 Auxiliar: Obtener Columnas para Duplicados',
+                        description: 'PASO 1: Ejecutar primero para obtener las columnas del destino',
+                        isAuxiliary: true,
+                        query: `-- UT-02 AUXILIAR: Obtener columnas para validar duplicados
 -- PASO 1: Ejecutar este query y copiar el resultado 'columnas_group'
 
 SELECT 
@@ -3067,15 +3210,15 @@ SELECT
 FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
 WHERE table_name = '${v.tablaDestino}'
   AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD', 'GEOGRAPHY', 'JSON')${bytesFilterDestino};`
-                });
+                    });
 
-                // UT-02 FINAL para tabla simple
-                queries.push({
-                    code: 'UT-02-FINAL',
-                    title: 'UT-02 Final: Valores Únicos (Todos los Campos)',
-                    description: 'PASO 2: Reemplazar <<COLUMNAS>> con el resultado del query auxiliar',
-                    isAuxiliary: false,
-                    query: `-- UT-02 FINAL: Valores Únicos - Duplicados en TODOS los campos
+                    // UT-02 FINAL para tabla simple
+                    queries.push({
+                        code: 'UT-02-FINAL',
+                        title: 'UT-02 Final: Valores Únicos (Todos los Campos)',
+                        description: 'PASO 2: Reemplazar <<COLUMNAS>> con el resultado del query auxiliar',
+                        isAuxiliary: false,
+                        query: `-- UT-02 FINAL: Valores Únicos - Duplicados en TODOS los campos
 -- PASO 2: Reemplazar <<COLUMNAS>> con 'columnas_group' del query auxiliar
 -- Resultado esperado: 0 registros (sin duplicados)
 
@@ -3088,15 +3231,15 @@ GROUP BY <<COLUMNAS>>
 HAVING COUNT(*) > 1
 ORDER BY ocurrencias DESC
 LIMIT 100;`
-                });
-            } else {
-                // UT-02 AUXILIAR para tabla con RECORD
-                queries.push({
-                    code: 'UT-02-AUX',
-                    title: 'UT-02 Auxiliar: Obtener Campos RECORD para Duplicados',
-                    description: 'PASO 1: Ejecutar primero para obtener campos del RECORD',
-                    isAuxiliary: true,
-                    query: `-- UT-02 AUXILIAR: Obtener campos del RECORD para validar duplicados
+                    });
+                } else {
+                    // UT-02 AUXILIAR para tabla con RECORD
+                    queries.push({
+                        code: 'UT-02-AUX',
+                        title: 'UT-02 Auxiliar: Obtener Campos RECORD para Duplicados',
+                        description: 'PASO 1: Ejecutar primero para obtener campos del RECORD',
+                        isAuxiliary: true,
+                        query: `-- UT-02 AUXILIAR: Obtener campos del RECORD para validar duplicados
 -- PASO 1: Ejecutar este query y copiar el resultado 'columnas_todas'
 
 DECLARE record_col STRING DEFAULT '${v.recordColumnDestino}';
@@ -3121,15 +3264,15 @@ SELECT
         ', ',
         (SELECT STRING_AGG(CONCAT('r.', campo), ', ') FROM campos_record)
     ) as columnas_todas;`
-                });
+                    });
 
-                // UT-02 FINAL para tabla con RECORD
-                queries.push({
-                    code: 'UT-02-FINAL',
-                    title: 'UT-02 Final: Valores Únicos (RECORD)',
-                    description: 'PASO 2: Reemplazar <<COLUMNAS>> con columnas_todas del auxiliar',
-                    isAuxiliary: false,
-                    query: `-- UT-02 FINAL: Valores Únicos - Duplicados en campos RECORD
+                    // UT-02 FINAL para tabla con RECORD
+                    queries.push({
+                        code: 'UT-02-FINAL',
+                        title: 'UT-02 Final: Valores Únicos (RECORD)',
+                        description: 'PASO 2: Reemplazar <<COLUMNAS>> con columnas_todas del auxiliar',
+                        isAuxiliary: false,
+                        query: `-- UT-02 FINAL: Valores Únicos - Duplicados en campos RECORD
 -- PASO 2: Reemplazar <<COLUMNAS>> con 'columnas_todas' del query auxiliar
 -- Resultado esperado: 0 registros (sin duplicados)
 
@@ -3143,21 +3286,106 @@ GROUP BY <<COLUMNAS>>
 HAVING COUNT(*) > 1
 ORDER BY ocurrencias DESC
 LIMIT 100;`
+                    });
+                }
+            } else {
+                // ─── Modo: EXECUTE IMMEDIATE (un solo script) ───
+                if (currentTableType === 'simple') {
+                // UT-02 EXECUTE IMMEDIATE para tabla simple
+                queries.push({
+                    code: 'UT-02',
+                    title: 'UT-02: Sin Duplicados (EXECUTE IMMEDIATE)',
+                    description: 'Obtiene columnas del destino y valida duplicados en un solo script BigQuery',
+                    isAuxiliary: false,
+                    query: `-- UT-02: Sin Duplicados - Todos los campos (EXECUTE IMMEDIATE)
+-- Resultado esperado: 0 registros (sin duplicados)
+
+DECLARE col_list STRING;
+
+SET col_list = (
+    SELECT STRING_AGG(column_name ORDER BY ordinal_position)
+    FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
+    WHERE table_name = '${v.tablaDestino}'
+      AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD', 'GEOGRAPHY', 'JSON')${bytesFilterDestino}
+);
+
+EXECUTE IMMEDIATE '''
+SELECT
+  ''' || col_list || ''',
+  COUNT(*) AS ocurrencias
+FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` d
+${v.joinDestino ? v.joinDestino + '\n' : ''}${whereDestino}
+GROUP BY ''' || col_list || '''
+HAVING COUNT(*) > 1
+ORDER BY ocurrencias DESC
+LIMIT 100;
+''';`
                 });
-            }
+                } else {
+                // UT-02 EXECUTE IMMEDIATE para tabla con RECORD
+                queries.push({
+                    code: 'UT-02',
+                    title: 'UT-02: Sin Duplicados RECORD (EXECUTE IMMEDIATE)',
+                    description: 'Obtiene campos del RECORD y valida duplicados en un solo script BigQuery',
+                    isAuxiliary: false,
+                    query: `-- UT-02: Sin Duplicados - Campos RECORD (EXECUTE IMMEDIATE)
+-- Resultado esperado: 0 registros (sin duplicados)
+
+DECLARE record_col STRING DEFAULT '${v.recordColumnDestino}';
+DECLARE col_base STRING;
+DECLARE col_rec  STRING;
+DECLARE col_list STRING;
+
+SET col_base = (
+    SELECT STRING_AGG(CONCAT('t.', column_name) ORDER BY ordinal_position)
+    FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
+    WHERE table_name = '${v.tablaDestino}'
+      AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD')${bytesFilterDestino}
+);
+
+SET col_rec = (
+    SELECT STRING_AGG(CONCAT('r.', REPLACE(field_path, CONCAT(record_col, '.'), '')) ORDER BY field_path)
+    FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS\`
+    WHERE table_name = '${v.tablaDestino}'
+      AND column_name = record_col
+      AND field_path != record_col${bytesFilterDestino}
+);
+
+SET col_list = CONCAT(
+    COALESCE(col_base, ''),
+    IF(col_base IS NOT NULL AND col_rec IS NOT NULL, ', ', ''),
+    COALESCE(col_rec, '')
+);
+
+EXECUTE IMMEDIATE '''
+SELECT
+  ''' || col_list || ''',
+  COUNT(*) AS ocurrencias
+FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` t
+LEFT JOIN UNNEST(t.${v.recordColumnDestino}) r
+${v.joinDestino ? v.joinDestino + '\n' : ''}${whereDestino}
+GROUP BY ''' || col_list || '''
+HAVING COUNT(*) > 1
+ORDER BY ocurrencias DESC
+LIMIT 100;
+''';`
+                });
+                }
+            } // end stepByStep else for UT-02
 
             // UT-03: Integridad - Queries de 2 pasos
             const filtroOrigenOneLine = v.filtroOrigen ? v.filtroOrigen.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim() : '';
             const filtroDestinoOneLine = v.filtroDestino ? v.filtroDestino.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim() : '';
             
-            if (currentTableType === 'simple') {
-                // UT-03 AUXILIAR para tabla simple
-                queries.push({
-                    code: 'UT-03-AUX',
-                    title: 'UT-03 Auxiliar: Generar Bloque de Columnas',
-                    description: 'PASO 1: Ejecutar primero para obtener el bloque de comparación',
-                    isAuxiliary: true,
-                    query: `-- UT-03 AUXILIAR: Generar bloque de columnas para comparar
+            if (stepByStep) {
+                // ─── Modo: Ejecución por pasos (AUX + FINAL) ───
+                if (currentTableType === 'simple') {
+                    queries.push({
+                        code: 'UT-03-AUX',
+                        title: 'UT-03 Auxiliar: Generar Bloque de Columnas',
+                        description: 'PASO 1: Ejecutar primero para obtener el bloque de comparación',
+                        isAuxiliary: true,
+                        query: `-- UT-03 AUXILIAR: Generar bloque de columnas para comparar
 -- PASO 1: Ejecutar este query y copiar el resultado 'bloque'
 
 WITH ORIGEN AS (
@@ -3183,15 +3411,15 @@ SELECT
   ) AS bloque 
 FROM ORIGEN a  
 JOIN DESTINO b ON UPPER(a.column_name) = UPPER(b.column_name);`
-                });
+                    });
 
-                // UT-03 FINAL para tabla simple
-                queries.push({
-                    code: 'UT-03-FINAL',
-                    title: 'UT-03 Final: Integridad Bidireccional',
-                    description: 'PASO 2: Pegar el bloque generado donde indica',
-                    isAuxiliary: false,
-                    query: `-- UT-03 FINAL: Integridad Bidireccional (FULL OUTER JOIN)
+                    // UT-03 FINAL para tabla simple
+                    queries.push({
+                        code: 'UT-03-FINAL',
+                        title: 'UT-03 Final: Integridad Bidireccional',
+                        description: 'PASO 2: Pegar el bloque generado donde indica',
+                        isAuxiliary: false,
+                        query: `-- UT-03 FINAL: Integridad Bidireccional (FULL OUTER JOIN)
 -- PASO 2: Pegar el 'bloque' del query auxiliar donde indica
 -- Resultado esperado: 0 registros con diferencias
 -- NOTA: Si desea obtener el total de diferencias, quitar el LIMIT 1000
@@ -3219,15 +3447,14 @@ FULL OUTER JOIN destino B
     ON ${pkList.map(pk => `CAST(A.${pk} AS STRING) = CAST(B.${pk} AS STRING)`).join(' AND ')}
 ORDER BY 1
 LIMIT 1000;`
-                });
-            } else {
-                // UT-03 AUXILIAR para tabla con RECORD
-                queries.push({
-                    code: 'UT-03-AUX',
-                    title: 'UT-03 Auxiliar: Obtener Campos RECORD para Comparar',
-                    description: 'PASO 1: Ejecutar primero para obtener campos del RECORD',
-                    isAuxiliary: true,
-                    query: `-- UT-03 AUXILIAR: Obtener campos del RECORD para comparar
+                    });
+                } else {
+                    queries.push({
+                        code: 'UT-03-AUX',
+                        title: 'UT-03 Auxiliar: Obtener Campos RECORD para Comparar',
+                        description: 'PASO 1: Ejecutar primero para obtener campos del RECORD',
+                        isAuxiliary: true,
+                        query: `-- UT-03 AUXILIAR: Obtener campos del RECORD para comparar
 -- PASO 1: Ejecutar este query y copiar el resultado 'bloque'
 
 DECLARE record_col_origen STRING DEFAULT '${v.recordColumnOrigen}';
@@ -3265,15 +3492,15 @@ SELECT
   ) AS bloque 
 FROM ORIGEN a  
 JOIN DESTINO b ON UPPER(a.field_path) = UPPER(b.field_path);`
-                });
+                    });
 
-                // UT-03 FINAL para tabla con RECORD
-                queries.push({
-                    code: 'UT-03-FINAL',
-                    title: 'UT-03 Final: Integridad Bidireccional (RECORD)',
-                    description: 'PASO 2: Reemplazar <<BLOQUE>> con el resultado del auxiliar',
-                    isAuxiliary: false,
-                    query: `-- UT-03 FINAL: Integridad Bidireccional (RECORD/ARRAY)
+                    // UT-03 FINAL para tabla con RECORD
+                    queries.push({
+                        code: 'UT-03-FINAL',
+                        title: 'UT-03 Final: Integridad Bidireccional (RECORD)',
+                        description: 'PASO 2: Reemplazar <<BLOQUE>> con el resultado del auxiliar',
+                        isAuxiliary: false,
+                        query: `-- UT-03 FINAL: Integridad Bidireccional (RECORD/ARRAY)
 -- PASO 2: Reemplazar <<BLOQUE>> con el resultado del query auxiliar
 -- Resultado esperado: 0 registros con diferencias
 
@@ -3301,18 +3528,151 @@ FULL OUTER JOIN destino d
 LEFT JOIN UNNEST(d.${v.recordColumnDestino}) da
 ORDER BY 1
 LIMIT 1000;`
-                });
-            }
-
-
-            // UT-04: Resumen de Diferencias campo a campo (2 pasos)
-            if (currentTableType === 'simple') {
+                    });
+                }
+            } else {
+                // ─── Modo: EXECUTE IMMEDIATE (un solo script) ───
+                if (currentTableType === 'simple') {
+                // UT-03 EXECUTE IMMEDIATE para tabla simple
                 queries.push({
-                    code: 'UT-04-AUX',
-                    title: 'UT-04 Auxiliar: Generar Bloques de Comparaci\u00f3n',
-                    description: 'PASO 1: Ejecutar primero para obtener bloque_diff y bloque_sum',
-                    isAuxiliary: true,
-                    query: `-- UT-04 AUXILIAR: Generar bloques para Resumen de Diferencias
+                    code: 'UT-03',
+                    title: 'UT-03: Integridad Bidireccional (EXECUTE IMMEDIATE)',
+                    description: 'Genera el bloque de comparación y ejecuta el FULL OUTER JOIN en un solo script',
+                    isAuxiliary: false,
+                    query: `-- UT-03: Integridad Bidireccional (EXECUTE IMMEDIATE)
+-- Resultado esperado: 0 registros con diferencias
+
+DECLARE bloque STRING;
+
+SET bloque = (
+    WITH ORIGEN AS (
+        SELECT column_name
+        FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.INFORMATION_SCHEMA.COLUMNS\`
+        WHERE table_name = '${v.tablaOrigen}'${bytesFilterOrigen}
+          AND column_name NOT IN (${pkList.map(pk => "'" + pk + "'").join(', ')})
+    ),
+    DESTINO AS (
+        SELECT column_name
+        FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
+        WHERE table_name = '${v.tablaDestino}'${bytesFilterDestino}
+          AND column_name NOT IN (${pkList.map(pk => "'" + pk + "'").join(', ')})
+    )
+    SELECT STRING_AGG(
+        CONCAT(
+            "A.", a.column_name, " AS valor_origen_", a.column_name, ", ",
+            "B.", b.column_name, " AS valor_destino_", b.column_name, ", ",
+            "CASE WHEN A.", a.column_name, " IS NULL AND B.", b.column_name, " IS NULL THEN 'IGUAL' ",
+            "WHEN UPPER(TRIM(CAST(A.", a.column_name, " AS STRING))) = UPPER(TRIM(CAST(B.", b.column_name, " AS STRING))) THEN 'IGUAL' ",
+            "ELSE 'DIFERENTE' END AS estado_", a.column_name
+        ),
+        ',\\n'
+    )
+    FROM ORIGEN a JOIN DESTINO b ON UPPER(a.column_name) = UPPER(b.column_name)
+);
+
+EXECUTE IMMEDIATE '''
+WITH
+  origen AS (
+    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\` o
+    ${v.joinOrigen ? v.joinOrigen + '\n    ' : ''}${filtroOrigenOneLine ? 'WHERE ' + filtroOrigenOneLine : ''}
+  ),
+  destino AS (
+    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` d
+    ${v.joinDestino ? v.joinDestino + '\n    ' : ''}${filtroDestinoOneLine ? 'WHERE ' + filtroDestinoOneLine : ''}
+  )
+SELECT DISTINCT
+    ${pkList.map(pk => "COALESCE(CAST(A." + pk + " AS STRING), CAST(B." + pk + " AS STRING)) AS " + pk).join(',\n    ')},
+    ''' || bloque || '''
+FROM origen A
+FULL OUTER JOIN destino B
+    ON ${pkList.map(pk => "COALESCE(CAST(A." + pk + " AS STRING), '') = COALESCE(CAST(B." + pk + " AS STRING), '')").join(' AND ')}
+ORDER BY ${pkList.map((_, i) => i + 1).join(', ')}
+LIMIT 1000;
+''';`
+                });
+                } else {
+                // UT-03 EXECUTE IMMEDIATE para tabla con RECORD
+                queries.push({
+                    code: 'UT-03',
+                    title: 'UT-03: Integridad Bidireccional RECORD (EXECUTE IMMEDIATE)',
+                    description: 'Genera el bloque RECORD y ejecuta la comparación FULL OUTER JOIN en un solo script',
+                    isAuxiliary: false,
+                    query: `-- UT-03: Integridad Bidireccional RECORD/ARRAY (EXECUTE IMMEDIATE)
+-- Resultado esperado: 0 registros con diferencias
+
+DECLARE record_col_origen STRING DEFAULT '${v.recordColumnOrigen}';
+DECLARE record_col_destino STRING DEFAULT '${v.recordColumnDestino}';
+DECLARE bloque STRING;
+
+SET bloque = (
+    WITH ORIGEN AS (
+        SELECT field_path
+        FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS\`
+        WHERE table_name = '${v.tablaOrigen}'
+          AND column_name = record_col_origen
+          AND field_path != record_col_origen${bytesFilterOrigen}
+    ),
+    DESTINO AS (
+        SELECT field_path
+        FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS\`
+        WHERE table_name = '${v.tablaDestino}'
+          AND column_name = record_col_destino
+          AND field_path != record_col_destino${bytesFilterDestino}
+    )
+    SELECT STRING_AGG(
+        CONCAT(
+            "oa.", REPLACE(a.field_path, CONCAT(record_col_origen, '.'), ''), " AS origen_", REPLACE(a.field_path, '.', '_'), ", ",
+            "da.", REPLACE(b.field_path, CONCAT(record_col_destino, '.'), ''), " AS destino_", REPLACE(b.field_path, '.', '_'), ", ",
+            "CASE WHEN oa.", REPLACE(a.field_path, CONCAT(record_col_origen, '.'), ''), " IS NULL AND da.", REPLACE(b.field_path, CONCAT(record_col_destino, '.'), ''), " IS NULL THEN 'IGUAL' ",
+            "WHEN CAST(oa.", REPLACE(a.field_path, CONCAT(record_col_origen, '.'), ''), " AS STRING) = CAST(da.", REPLACE(b.field_path, CONCAT(record_col_destino, '.'), ''), " AS STRING) THEN 'IGUAL' ",
+            "ELSE 'DIFERENTE' END AS estado_", REPLACE(a.field_path, '.', '_')
+        ),
+        ',\\n'
+    )
+    FROM ORIGEN a JOIN DESTINO b ON UPPER(a.field_path) = UPPER(b.field_path)
+);
+
+EXECUTE IMMEDIATE '''
+WITH
+  origen AS (
+    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\` o
+    ${v.joinOrigen ? v.joinOrigen + '\n    ' : ''}${v.filtroOrigen ? 'WHERE ' + v.filtroOrigen : ''}
+  ),
+  destino AS (
+    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` d
+    ${v.joinDestino ? v.joinDestino + '\n    ' : ''}${v.filtroDestino ? 'WHERE ' + v.filtroDestino : ''}
+  )
+SELECT DISTINCT
+    ${pkList.map(pk => "COALESCE(CAST(o." + pk + " AS STRING), CAST(d." + pk + " AS STRING)) AS " + pk).join(',\n    ')},
+    CASE
+        WHEN o.${pkList[0]} IS NULL THEN 'SOLO_DESTINO'
+        WHEN d.${pkList[0]} IS NULL THEN 'SOLO_ORIGEN'
+        ELSE 'DIFERENTE'
+    END AS tipo_diferencia,
+    ''' || bloque || '''
+FROM origen o
+LEFT JOIN UNNEST(o.${v.recordColumnOrigen}) oa
+FULL OUTER JOIN destino d
+    ON ${pkList.map(pk => "COALESCE(CAST(o." + pk + " AS STRING), '') = COALESCE(CAST(d." + pk + " AS STRING), '')").join(' AND ')}
+LEFT JOIN UNNEST(d.${v.recordColumnDestino}) da
+ORDER BY ${pkList.map((_, i) => i + 1).join(', ')}
+LIMIT 1000;
+''';`
+                });
+                }
+            } // end stepByStep else for UT-03
+
+
+            // UT-04: Resumen de Diferencias campo a campo (EXECUTE IMMEDIATE)
+            if (stepByStep) {
+                // ─── Modo: Ejecución por pasos (AUX + FINAL) ───
+                if (currentTableType === 'simple') {
+                    queries.push({
+                        code: 'UT-04-AUX',
+                        title: 'UT-04 Auxiliar: Generar Bloques de Comparación',
+                        description: 'PASO 1: Ejecutar primero para obtener bloque_diff y bloque_sum',
+                        isAuxiliary: true,
+                        query: `-- UT-04 AUXILIAR: Generar bloques para Resumen de Diferencias
 -- PASO 1: Ejecutar y copiar 'bloque_diff' y 'bloque_sum'
 -- bloque_diff: va dentro del SELECT del CTE joined
 -- bloque_sum: va en el SELECT final
@@ -3342,55 +3702,54 @@ SELECT
   ) AS bloque_sum
 FROM ORIGEN a
 JOIN DESTINO b ON UPPER(a.column_name) = UPPER(b.column_name);`
-                });
+                    });
 
-                queries.push({
-                    code: 'UT-04-FINAL',
-                    title: 'UT-04 Final: Resumen de Diferencias',
-                    description: 'PASO 2: Pegar bloque_diff y bloque_sum donde indica',
-                    isAuxiliary: false,
-                    query: `-- UT-04 FINAL: Resumen de Diferencias campo a campo
+                    queries.push({
+                        code: 'UT-04-FINAL',
+                        title: 'UT-04 Final: Resumen de Diferencias',
+                        description: 'PASO 2: Pegar bloque_diff y bloque_sum donde indica',
+                        isAuxiliary: false,
+                        query: `-- UT-04 FINAL: Resumen de Diferencias campo a campo
 -- PASO 2: Pegar 'bloque_diff' y 'bloque_sum' donde indica
 -- Resultado esperado: dif_CAMPO = 0 para todos los campos (sin diferencias)
 
 WITH
   origen AS (
-    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\` o
-    ${v.joinOrigen ? v.joinOrigen + '\n    ' : ''}${filtroOrigenOneLine ? 'WHERE ' + filtroOrigenOneLine : ''}
+    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\`
+    ${filtroOrigenOneLine ? 'WHERE ' + filtroOrigenOneLine : ''}
   ),
   destino AS (
-    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` d
-    ${v.joinDestino ? v.joinDestino + '\n    ' : ''}${filtroDestinoOneLine ? 'WHERE ' + filtroDestinoOneLine : ''}
+    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\`
+    ${filtroDestinoOneLine ? 'WHERE ' + filtroDestinoOneLine : ''}
   ),
   joined AS (
     SELECT
       ${pkList.map(pk => `COALESCE(CAST(A.${pk} AS STRING), CAST(B.${pk} AS STRING)) AS ${pk}`).join(',\n      ')},
-      -- \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
-      -- PEGAR AQU\u00cd EL 'bloque_diff' DEL QUERY UT-04-AUX
+      -- ═══════════════════════════════════════════════════════════════
+      -- PEGAR AQUÍ EL 'bloque_diff' DEL QUERY UT-04-AUX
       -- Ejemplo:
       -- CASE WHEN COALESCE(CAST(A.campo AS STRING), '') = COALESCE(CAST(B.campo AS STRING), '') THEN 0 ELSE 1 END AS diff_campo,
-      -- \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+      -- ═══════════════════════════════════════════════════════════════
     FROM origen A
     FULL OUTER JOIN destino B
       ON ${pkList.map(pk => `CAST(A.${pk} AS STRING) = CAST(B.${pk} AS STRING)`).join(' AND ')}
   )
 SELECT
   COUNT(1) AS total_registros,
-  -- \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
-  -- PEGAR AQU\u00cd EL 'bloque_sum' DEL QUERY UT-04-AUX
+  -- ═══════════════════════════════════════════════════════════════
+  -- PEGAR AQUÍ EL 'bloque_sum' DEL QUERY UT-04-AUX
   -- Ejemplo:
   -- SUM(diff_campo) AS dif_campo,
-  -- \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+  -- ═══════════════════════════════════════════════════════════════
 FROM joined;`
-                });
-            } else {
-                // UT-04 para tabla RECORD
-                queries.push({
-                    code: 'UT-04-AUX',
-                    title: 'UT-04 Auxiliar: Generar Bloques de Comparaci\u00f3n (RECORD)',
-                    description: 'PASO 1: Ejecutar primero para obtener bloque_diff y bloque_sum',
-                    isAuxiliary: true,
-                    query: `-- UT-04 AUXILIAR: Generar bloques para Resumen de Diferencias (RECORD)
+                    });
+                } else {
+                    queries.push({
+                        code: 'UT-04-AUX',
+                        title: 'UT-04 Auxiliar: Generar Bloques de Comparación (RECORD)',
+                        description: 'PASO 1: Ejecutar primero para obtener bloque_diff y bloque_sum',
+                        isAuxiliary: true,
+                        query: `-- UT-04 AUXILIAR: Generar bloques para Resumen de Diferencias (RECORD)
 -- PASO 1: Ejecutar y copiar 'bloque_diff' y 'bloque_sum' (solo campos RECORD + PKs)
 
 DECLARE record_col_origen STRING DEFAULT '${v.recordColumnOrigen}';
@@ -3417,14 +3776,14 @@ SELECT
   ) AS bloque_sum
 FROM campos_record_origen a
 JOIN campos_record_destino b ON UPPER(a.campo) = UPPER(b.campo);`
-                });
+                    });
 
-                queries.push({
-                    code: 'UT-04-FINAL',
-                    title: 'UT-04 Final: Resumen de Diferencias (RECORD)',
-                    description: 'PASO 2: Pegar bloque_diff y bloque_sum donde indica',
-                    isAuxiliary: false,
-                    query: `-- UT-04 FINAL: Resumen de Diferencias campo a campo (RECORD)
+                    queries.push({
+                        code: 'UT-04-FINAL',
+                        title: 'UT-04 Final: Resumen de Diferencias (RECORD)',
+                        description: 'PASO 2: Pegar bloque_diff y bloque_sum donde indica',
+                        isAuxiliary: false,
+                        query: `-- UT-04 FINAL: Resumen de Diferencias campo a campo (RECORD)
 -- PASO 2: Pegar 'bloque_diff' y 'bloque_sum' donde indica
 -- Resultado esperado: dif_CAMPO = 0 para todos (sin diferencias)
 
@@ -3440,7 +3799,7 @@ WITH
   joined AS (
     SELECT
       ${pkList.map(pk => `COALESCE(CAST(A.${pk} AS STRING), CAST(B.${pk} AS STRING)) AS ${pk}`).join(',\n      ')},
-      -- PEGAR AQU\u00cd EL 'bloque_diff' (campos base + campos RECORD)
+      -- PEGAR AQUÍ EL 'bloque_diff' (campos base + campos RECORD)
     FROM origen A
     LEFT JOIN UNNEST(A.${v.recordColumnOrigen}) oa
     FULL OUTER JOIN destino B
@@ -3449,10 +3808,147 @@ WITH
   )
 SELECT
   COUNT(1) AS total_registros,
-  -- PEGAR AQU\u00cd EL 'bloque_sum'
+  -- PEGAR AQUÍ EL 'bloque_sum' DEL QUERY UT-04-AUX
 FROM joined;`
+                    });
+                }
+            } else {
+                // ─── Modo: EXECUTE IMMEDIATE (un solo script) ───
+                if (currentTableType === 'simple') {
+                queries.push({
+                    code: 'UT-04',
+                    title: 'UT-04: Resumen de Diferencias (EXECUTE IMMEDIATE)',
+                    description: 'Genera bloques de comparaci\u00f3n y ejecuta el resumen campo a campo en un solo script',
+                    isAuxiliary: false,
+                    query: `-- UT-04: Resumen de Diferencias campo a campo (EXECUTE IMMEDIATE)
+-- Resultado esperado: dif_CAMPO = 0 para todos los campos (sin diferencias)
+
+DECLARE bloque_diff STRING;
+DECLARE bloque_sum STRING;
+
+SET (bloque_diff, bloque_sum) = (
+    WITH ORIGEN AS (
+        SELECT column_name
+        FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.INFORMATION_SCHEMA.COLUMNS\`
+        WHERE table_name = '${v.tablaOrigen}'
+          AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD')${bytesFilterOrigen}
+    ),
+    DESTINO AS (
+        SELECT column_name
+        FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
+        WHERE table_name = '${v.tablaDestino}'
+          AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD')${bytesFilterDestino}
+    )
+    SELECT AS STRUCT
+        STRING_AGG(
+            CONCAT(
+                "CASE WHEN COALESCE(CAST(A.", a.column_name, " AS STRING), '') = COALESCE(CAST(B.", b.column_name, " AS STRING), '') THEN 0 ELSE 1 END AS diff_", a.column_name
+            ), ',\\n'
+        ) AS bloque_diff,
+        STRING_AGG(
+            CONCAT("SUM(diff_", a.column_name, ") AS dif_", a.column_name),
+            ',\\n'
+        ) AS bloque_sum
+    FROM ORIGEN a
+    JOIN DESTINO b ON UPPER(a.column_name) = UPPER(b.column_name)
+);
+
+EXECUTE IMMEDIATE '''
+WITH
+  origen AS (
+    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\` o
+    ${v.joinOrigen ? v.joinOrigen + '\n    ' : ''}${filtroOrigenOneLine ? 'WHERE ' + filtroOrigenOneLine : ''}
+  ),
+  destino AS (
+    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` d
+    ${v.joinDestino ? v.joinDestino + '\n    ' : ''}${filtroDestinoOneLine ? 'WHERE ' + filtroDestinoOneLine : ''}
+  ),
+  joined AS (
+    SELECT
+      ${pkList.map(pk => `COALESCE(CAST(A.${pk} AS STRING), CAST(B.${pk} AS STRING)) AS ${pk}`).join(',\n      ')},
+      ''' || bloque_diff || '''
+    FROM origen A
+    FULL OUTER JOIN destino B
+      ON ${pkList.map(pk => `CAST(A.${pk} AS STRING) = CAST(B.${pk} AS STRING)`).join(' AND ')}
+  )
+SELECT
+  COUNT(1) AS total_registros,
+  ''' || bloque_sum || '''
+FROM joined;
+''';`
                 });
-            }
+                } else {
+                // UT-04 para tabla RECORD (EXECUTE IMMEDIATE)
+                queries.push({
+                    code: 'UT-04',
+                    title: 'UT-04: Resumen de Diferencias RECORD (EXECUTE IMMEDIATE)',
+                    description: 'Genera bloques de comparaci\u00f3n de campos RECORD y ejecuta en un solo script',
+                    isAuxiliary: false,
+                    query: `-- UT-04: Resumen de Diferencias campo a campo RECORD (EXECUTE IMMEDIATE)
+-- Resultado esperado: dif_CAMPO = 0 para todos (sin diferencias)
+
+DECLARE record_col_origen STRING DEFAULT '${v.recordColumnOrigen}';
+DECLARE record_col_destino STRING DEFAULT '${v.recordColumnDestino}';
+DECLARE bloque_diff STRING;
+DECLARE bloque_sum STRING;
+
+SET (bloque_diff, bloque_sum) = (
+    WITH campos_record_origen AS (
+        SELECT REPLACE(field_path, CONCAT(record_col_origen, '.'), '') AS campo
+        FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS\`
+        WHERE table_name = '${v.tablaOrigen}'
+          AND column_name = record_col_origen
+          AND field_path != record_col_origen${bytesFilterOrigen}
+    ),
+    campos_record_destino AS (
+        SELECT REPLACE(field_path, CONCAT(record_col_destino, '.'), '') AS campo
+        FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS\`
+        WHERE table_name = '${v.tablaDestino}'
+          AND column_name = record_col_destino
+          AND field_path != record_col_destino${bytesFilterDestino}
+    )
+    SELECT AS STRUCT
+        STRING_AGG(
+            CONCAT(
+                "CASE WHEN COALESCE(CAST(oa.", a.campo, " AS STRING), '') = COALESCE(CAST(da.", b.campo, " AS STRING), '') THEN 0 ELSE 1 END AS diff_", a.campo
+            ), ',\\n'
+        ) AS bloque_diff,
+        STRING_AGG(
+            CONCAT("SUM(diff_", a.campo, ") AS dif_", a.campo),
+            ',\\n'
+        ) AS bloque_sum
+    FROM campos_record_origen a
+    JOIN campos_record_destino b ON UPPER(a.campo) = UPPER(b.campo)
+);
+
+EXECUTE IMMEDIATE '''
+WITH
+  origen AS (
+    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\` o
+    ${v.joinOrigen ? v.joinOrigen + '\n    ' : ''}${v.filtroOrigen ? 'WHERE ' + v.filtroOrigen : ''}
+  ),
+  destino AS (
+    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` d
+    ${v.joinDestino ? v.joinDestino + '\n    ' : ''}${v.filtroDestino ? 'WHERE ' + v.filtroDestino : ''}
+  ),
+  joined AS (
+    SELECT
+      ${pkList.map(pk => `COALESCE(CAST(A.${pk} AS STRING), CAST(B.${pk} AS STRING)) AS ${pk}`).join(',\n      ')},
+      ''' || bloque_diff || '''
+    FROM origen A
+    LEFT JOIN UNNEST(A.${v.recordColumnOrigen}) oa
+    FULL OUTER JOIN destino B
+      ON ${pkList.map(pk => `CAST(A.${pk} AS STRING) = CAST(B.${pk} AS STRING)`).join(' AND ')}
+    LEFT JOIN UNNEST(B.${v.recordColumnDestino}) da
+  )
+SELECT
+  COUNT(1) AS total_registros,
+  ''' || bloque_sum || '''
+FROM joined;
+''';`
+                });
+                }
+            } // end stepByStep else for UT-04
 
             return queries;
         }
@@ -3471,6 +3967,7 @@ FROM joined;`
             const bytesFilterOrigen = v.origenHasBytes ? `\n    AND data_type ${bytesOpStr}` : '';
             const bytesFilterDestino = v.destinoHasBytes ? `\n    AND data_type ${bytesOpStr}` : '';
 
+            const stepByStep = document.getElementById('stepByStepCheck')?.checked ?? false;
             const queries = [];
 
             // R01: Existencia de tabla con fecha creación/actualización
@@ -3651,152 +4148,391 @@ EXECUTE IMMEDIATE query_nulos;`
                 });
             }
 
-            // R06 depende del tipo de tabla
-            if (currentTableType === 'simple') {
-                // R06 AUXILIAR para tabla simple
-                queries.push({
-                    code: 'R06-AUX',
-                    title: 'R06 Auxiliar: Obtener Columnas para Duplicados',
-                    description: 'PASO 1: Ejecutar primero para obtener las columnas del destino',
-                    isAuxiliary: true,
-                    query: `-- R06 AUXILIAR: Obtener columnas para validar duplicados
--- PASO 1: Ejecutar este query y copiar el resultado 'columnas_group'
+            // R06: Sin Duplicados
+            if (stepByStep) {
+                // ─── Modo: Ejecución por pasos (AUX + FINAL) ───
+                if (currentTableType === 'simple') {
+                    // R06 AUXILIAR para tabla simple
+                    queries.push({
+                        code: 'R06-AUX',
+                        title: 'R06 Auxiliar: Obtener Columnas para Duplicados',
+                        description: 'PASO 1: Ejecutar primero para obtener las columnas del destino',
+                        isAuxiliary: true,
+                        query: `-- R06 AUXILIAR: Obtener columnas para validar duplicados
+    -- PASO 1: Ejecutar este query y copiar el resultado 'columnas_group'
+    
+    SELECT 
+        STRING_AGG(column_name, ', ') as columnas_group
+    FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
+    WHERE table_name = '${v.tablaDestino}'
+      AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD', 'GEOGRAPHY', 'JSON')${bytesFilterDestino};`
+                    });
+    
+                    // R06 FINAL para tabla simple
+                    queries.push({
+                        code: 'R06-FINAL',
+                        title: 'R06 Final: Sin Duplicados',
+                        description: 'PASO 2: Reemplazar <<COLUMNAS>> con el resultado del auxiliar',
+                        isAuxiliary: false,
+                        query: `-- R06 FINAL: Sin Duplicados - Todos los campos (en DESTINO)
+    -- PASO 2: Reemplazar <<COLUMNAS>> con 'columnas_group' del query auxiliar
+    -- Resultado esperado: 0 registros
+    
+    SELECT 
+        <<COLUMNAS>>,
+        COUNT(*) as ocurrencias
+    FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` d
+    ${v.joinDestino ? v.joinDestino + '\n' : ''}${whereDestino}
+    GROUP BY <<COLUMNAS>>
+    HAVING COUNT(*) > 1
+    ORDER BY ocurrencias DESC
+    LIMIT 100;`
+                    });
+                } else {
+                    // R06 AUXILIAR para tabla con RECORD (igual que R07)
+                    queries.push({
+                        code: 'R06-AUX',
+                        title: 'R06 Auxiliar: Obtener Campos RECORD para Duplicados',
+                        description: 'PASO 1: Ejecutar primero para obtener campos del RECORD',
+                        isAuxiliary: true,
+                        query: `-- R06 AUXILIAR: Obtener campos del RECORD para validar duplicados
+    -- PASO 1: Ejecutar este query y copiar el resultado 'columnas_todas'
+    
+    DECLARE record_col STRING DEFAULT '${v.recordColumnDestino}';
+    
+    WITH campos_base AS (
+        SELECT column_name
+        FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
+        WHERE table_name = '${v.tablaDestino}'
+          AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD')${bytesFilterDestino}
+    ),
+    campos_record AS (
+        SELECT 
+            REPLACE(field_path, CONCAT(record_col, '.'), '') as campo
+        FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS\`
+        WHERE table_name = '${v.tablaDestino}'
+          AND column_name = record_col
+          AND field_path != record_col${bytesFilterDestino}
+    )
+    SELECT 
+        CONCAT(
+            (SELECT STRING_AGG(CONCAT('t.', column_name), ', ') FROM campos_base),
+            ', ',
+            (SELECT STRING_AGG(CONCAT('r.', campo), ', ') FROM campos_record)
+        ) as columnas_todas;`
+                    });
+    
+                    // R06 FINAL para tabla con RECORD
+                    queries.push({
+                        code: 'R06-FINAL',
+                        title: 'R06 Final: Sin Duplicados (RECORD)',
+                        description: 'PASO 2: Reemplazar <<COLUMNAS>> con columnas_todas del auxiliar',
+                        isAuxiliary: false,
+                        query: `-- R06 FINAL: Sin Duplicados - Campos RECORD (en DESTINO)
+    -- PASO 2: Reemplazar <<COLUMNAS>> con 'columnas_todas' del query auxiliar
+    -- Resultado esperado: 0 registros
+    
+    SELECT 
+        <<COLUMNAS>>,
+        COUNT(*) as ocurrencias
+    FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` t
+    LEFT JOIN UNNEST(t.${v.recordColumnDestino}) r
+    ${v.joinDestino ? v.joinDestino + '\n' : ''}${whereDestino}
+    GROUP BY <<COLUMNAS>>
+    HAVING COUNT(*) > 1
+    ORDER BY ocurrencias DESC
+    LIMIT 100;`
+                    });
+                }
+    
+            } else {
+                // ─── Modo: EXECUTE IMMEDIATE (un solo script) ───
+                if (currentTableType === 'simple') {
+                    queries.push({
+                        code: 'R06',
+                        title: 'R06: Sin Duplicados (EXECUTE IMMEDIATE)',
+                        description: 'Obtiene columnas del destino y valida duplicados en un solo script BigQuery',
+                        isAuxiliary: false,
+                        query: `-- R06: Sin Duplicados - Todos los campos (EXECUTE IMMEDIATE)
+-- Resultado esperado: 0 registros (sin duplicados)
 
-SELECT 
-    STRING_AGG(column_name, ', ') as columnas_group
-FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
-WHERE table_name = '${v.tablaDestino}'
-  AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD', 'GEOGRAPHY', 'JSON')${bytesFilterDestino};`
-                });
+DECLARE col_list STRING;
 
-                // R06 FINAL para tabla simple
-                queries.push({
-                    code: 'R06-FINAL',
-                    title: 'R06 Final: Sin Duplicados',
-                    description: 'PASO 2: Reemplazar <<COLUMNAS>> con el resultado del auxiliar',
-                    isAuxiliary: false,
-                    query: `-- R06 FINAL: Sin Duplicados - Todos los campos (en DESTINO)
--- PASO 2: Reemplazar <<COLUMNAS>> con 'columnas_group' del query auxiliar
--- Resultado esperado: 0 registros
+SET col_list = (
+    SELECT STRING_AGG(column_name ORDER BY ordinal_position)
+    FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
+    WHERE table_name = '${v.tablaDestino}'
+      AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD', 'GEOGRAPHY', 'JSON')${bytesFilterDestino}
+);
 
-SELECT 
-    <<COLUMNAS>>,
-    COUNT(*) as ocurrencias
+EXECUTE IMMEDIATE '''
+SELECT
+  ''' || col_list || ''',
+  COUNT(*) AS ocurrencias
 FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` d
 ${v.joinDestino ? v.joinDestino + '\n' : ''}${whereDestino}
-GROUP BY <<COLUMNAS>>
+GROUP BY ''' || col_list || '''
 HAVING COUNT(*) > 1
 ORDER BY ocurrencias DESC
-LIMIT 100;`
-                });
-            } else {
-                // R06 AUXILIAR para tabla con RECORD (igual que R07)
-                queries.push({
-                    code: 'R06-AUX',
-                    title: 'R06 Auxiliar: Obtener Campos RECORD para Duplicados',
-                    description: 'PASO 1: Ejecutar primero para obtener campos del RECORD',
-                    isAuxiliary: true,
-                    query: `-- R06 AUXILIAR: Obtener campos del RECORD para validar duplicados
--- PASO 1: Ejecutar este query y copiar el resultado 'columnas_todas'
+LIMIT 100;
+''';`
+                    });
+                } else {
+                    queries.push({
+                        code: 'R06',
+                        title: 'R06: Sin Duplicados RECORD (EXECUTE IMMEDIATE)',
+                        description: 'Obtiene campos del RECORD y valida duplicados en un solo script BigQuery',
+                        isAuxiliary: false,
+                        query: `-- R06: Sin Duplicados - Campos RECORD (EXECUTE IMMEDIATE)
+-- Resultado esperado: 0 registros (sin duplicados)
 
 DECLARE record_col STRING DEFAULT '${v.recordColumnDestino}';
+DECLARE col_base STRING;
+DECLARE col_rec  STRING;
+DECLARE col_list STRING;
 
-WITH campos_base AS (
-    SELECT column_name
+SET col_base = (
+    SELECT STRING_AGG(CONCAT('t.', column_name) ORDER BY ordinal_position)
     FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
     WHERE table_name = '${v.tablaDestino}'
       AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD')${bytesFilterDestino}
-),
-campos_record AS (
-    SELECT 
-        REPLACE(field_path, CONCAT(record_col, '.'), '') as campo
+);
+
+SET col_rec = (
+    SELECT STRING_AGG(CONCAT('r.', REPLACE(field_path, CONCAT(record_col, '.'), '')) ORDER BY field_path)
     FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS\`
     WHERE table_name = '${v.tablaDestino}'
       AND column_name = record_col
       AND field_path != record_col${bytesFilterDestino}
-)
-SELECT 
-    CONCAT(
-        (SELECT STRING_AGG(CONCAT('t.', column_name), ', ') FROM campos_base),
-        ', ',
-        (SELECT STRING_AGG(CONCAT('r.', campo), ', ') FROM campos_record)
-    ) as columnas_todas;`
-                });
+);
 
-                // R06 FINAL para tabla con RECORD
-                queries.push({
-                    code: 'R06-FINAL',
-                    title: 'R06 Final: Sin Duplicados (RECORD)',
-                    description: 'PASO 2: Reemplazar <<COLUMNAS>> con columnas_todas del auxiliar',
-                    isAuxiliary: false,
-                    query: `-- R06 FINAL: Sin Duplicados - Campos RECORD (en DESTINO)
--- PASO 2: Reemplazar <<COLUMNAS>> con 'columnas_todas' del query auxiliar
--- Resultado esperado: 0 registros
+SET col_list = CONCAT(
+    COALESCE(col_base, ''),
+    IF(col_base IS NOT NULL AND col_rec IS NOT NULL, ', ', ''),
+    COALESCE(col_rec, '')
+);
 
-SELECT 
-    <<COLUMNAS>>,
-    COUNT(*) as ocurrencias
+EXECUTE IMMEDIATE '''
+SELECT
+  ''' || col_list || ''',
+  COUNT(*) AS ocurrencias
 FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` t
 LEFT JOIN UNNEST(t.${v.recordColumnDestino}) r
 ${v.joinDestino ? v.joinDestino + '\n' : ''}${whereDestino}
-GROUP BY <<COLUMNAS>>
+GROUP BY ''' || col_list || '''
 HAVING COUNT(*) > 1
 ORDER BY ocurrencias DESC
-LIMIT 100;`
-                });
+LIMIT 100;
+''';`
+                    });
+                }
             }
 
-            // R07: Valores coinciden - Query de 2 pasos
+            // R07: Valores coinciden - EXECUTE IMMEDIATE o 2 pasos
             // Filtros sin saltos de línea
             const filtroOrigenR07 = v.filtroOrigen ? v.filtroOrigen.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim() : '';
             const filtroDestinoR07 = v.filtroDestino ? v.filtroDestino.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim() : '';
-            
-            if (currentTableType === 'simple') {
-                // R07 AUXILIAR para tabla simple
-                queries.push({
-                    code: 'R07-AUX',
-                    title: 'R07 Auxiliar: Generar Bloque de Columnas',
-                    description: 'PASO 1: Ejecutar primero para obtener el bloque de comparación',
-                    isAuxiliary: true,
-                    query: `-- R07 AUXILIAR: Generar bloque de columnas para comparar
--- PASO 1: Ejecutar este query y copiar el resultado 'bloque'
 
-WITH ORIGEN AS (
-  SELECT column_name
-  FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.INFORMATION_SCHEMA.COLUMNS\`
-  WHERE table_name = '${v.tablaOrigen}'${bytesFilterOrigen}
-), 
-DESTINO AS (
-  SELECT column_name
-  FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
-  WHERE table_name = '${v.tablaDestino}'${bytesFilterDestino}
-)
-SELECT 
-  STRING_AGG(
-    CONCAT(
-      'A.', a.column_name, ' AS valor_origen_', a.column_name, ', ',
-      'B.', b.column_name, ' AS valor_destino_', b.column_name, ', ',
-      "CASE WHEN A.", a.column_name, " IS NULL AND B.", b.column_name, " IS NULL THEN 'IGUAL' ",
-      "WHEN UPPER(TRIM(CAST(A.", a.column_name, " AS STRING))) = UPPER(TRIM(CAST(B.", b.column_name, " AS STRING))) THEN 'IGUAL' ",
-      "ELSE 'DIFERENTE' END AS estado_", a.column_name
+            if (stepByStep) {
+                // ─── Modo: Ejecución por pasos (AUX + FINAL) ───
+                
+                if (currentTableType === 'simple') {
+                    // R07 AUXILIAR para tabla simple
+                    queries.push({
+                        code: 'R07-AUX',
+                        title: 'R07 Auxiliar: Generar Bloque de Columnas',
+                        description: 'PASO 1: Ejecutar primero para obtener el bloque de comparación',
+                        isAuxiliary: true,
+                        query: `-- R07 AUXILIAR: Generar bloque de columnas para comparar
+    -- PASO 1: Ejecutar este query y copiar el resultado 'bloque'
+    
+    WITH ORIGEN AS (
+      SELECT column_name
+      FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.INFORMATION_SCHEMA.COLUMNS\`
+      WHERE table_name = '${v.tablaOrigen}'${bytesFilterOrigen}
+    ), 
+    DESTINO AS (
+      SELECT column_name
+      FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
+      WHERE table_name = '${v.tablaDestino}'${bytesFilterDestino}
+    )
+    SELECT 
+      STRING_AGG(
+        CONCAT(
+          'A.', a.column_name, ' AS valor_origen_', a.column_name, ', ',
+          'B.', b.column_name, ' AS valor_destino_', b.column_name, ', ',
+          "CASE WHEN A.", a.column_name, " IS NULL AND B.", b.column_name, " IS NULL THEN 'IGUAL' ",
+          "WHEN UPPER(TRIM(CAST(A.", a.column_name, " AS STRING))) = UPPER(TRIM(CAST(B.", b.column_name, " AS STRING))) THEN 'IGUAL' ",
+          "ELSE 'DIFERENTE' END AS estado_", a.column_name
+        ),
+        ', '
+      ) AS bloque 
+    FROM ORIGEN a  
+    JOIN DESTINO b ON UPPER(a.column_name) = UPPER(b.column_name);`
+                    });
+    
+                    // R07 FINAL para tabla simple
+                    queries.push({
+                        code: 'R07-FINAL',
+                        title: 'R07 Final: Valores Coinciden',
+                        description: 'PASO 2: Pegar el bloque generado donde indica',
+                        isAuxiliary: false,
+                        query: `-- R07 FINAL: Valores Coinciden (por PK) - TABLA SIMPLE
+    -- PASO 2: Pegar el 'bloque' del query auxiliar donde indica
+    -- Resultado esperado: 0 registros diferentes
+    -- NOTA: Si desea obtener el total de diferencias, quitar el LIMIT 1000
+    
+    WITH
+      origen AS (
+        SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\`
+        ${filtroOrigenR07 ? 'WHERE ' + filtroOrigenR07 : ''}
+      ),
+      destino AS (
+        SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\`
+        ${filtroDestinoR07 ? 'WHERE ' + filtroDestinoR07 : ''}
+      )
+    SELECT DISTINCT
+        ${pkList.map(pk => `COALESCE(CAST(A.${pk} AS STRING), CAST(B.${pk} AS STRING)) AS ${pk}`).join(',\n    ')},
+        -- ═══════════════════════════════════════════════════════════════
+        -- PEGAR AQUÍ EL 'bloque' DEL QUERY R07-AUX
+        -- Ejemplo:
+        -- A.campo1 AS valor_origen_campo1,
+        -- B.campo1 AS valor_destino_campo1,
+        -- CASE WHEN A.campo1 IS NULL AND B.campo1 IS NULL THEN 'IGUAL' ... END AS estado_campo1,
+        -- ═══════════════════════════════════════════════════════════════
+    FROM origen A
+    FULL OUTER JOIN destino B
+        ON ${pkList.map(pk => `CAST(A.${pk} AS STRING) = CAST(B.${pk} AS STRING)`).join(' AND ')}
+    ORDER BY 1
+    LIMIT 1000;`
+                    });
+                } else {
+                    // R07 AUXILIAR para tabla con RECORD
+                    queries.push({
+                        code: 'R07-AUX',
+                        title: 'R07 Auxiliar: Obtener Campos RECORD',
+                        description: 'PASO 1: Ejecutar primero para obtener campos del RECORD',
+                        isAuxiliary: true,
+                        query: `-- R07 AUXILIAR: Obtener campos del RECORD para comparar
+    -- PASO 1: Ejecutar este query y copiar el resultado 'bloque'
+    
+    DECLARE record_col_origen STRING DEFAULT '${v.recordColumnOrigen}';
+    DECLARE record_col_destino STRING DEFAULT '${v.recordColumnDestino}';
+    
+    WITH ORIGEN AS (
+      SELECT field_path 
+      FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS\`
+      WHERE table_name = '${v.tablaOrigen}' 
+        AND column_name = record_col_origen
+        AND field_path != record_col_origen${bytesFilterOrigen}
+    ), 
+    DESTINO AS (
+      SELECT field_path 
+      FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS\`
+      WHERE table_name = '${v.tablaDestino}'
+        AND column_name = record_col_destino
+        AND field_path != record_col_destino${bytesFilterDestino}
+    )
+    SELECT 
+      STRING_AGG(
+        CONCAT(
+          'oa.', REPLACE(a.field_path, CONCAT(record_col_origen, '.'), ''), 
+          ' AS origen_', REPLACE(a.field_path, '.', '_'), ', ',
+          'da.', REPLACE(b.field_path, CONCAT(record_col_destino, '.'), ''), 
+          ' AS destino_', REPLACE(b.field_path, '.', '_'), ', ',
+          "CASE WHEN oa.", REPLACE(a.field_path, CONCAT(record_col_origen, '.'), ''), 
+          " IS NULL AND da.", REPLACE(b.field_path, CONCAT(record_col_destino, '.'), ''), 
+          " IS NULL THEN 'IGUAL' WHEN CAST(oa.", REPLACE(a.field_path, CONCAT(record_col_origen, '.'), ''), 
+          " AS STRING) = CAST(da.", REPLACE(b.field_path, CONCAT(record_col_destino, '.'), ''), 
+          " AS STRING) THEN 'IGUAL' ELSE 'DIFERENTE' END AS estado_", 
+          REPLACE(a.field_path, '.', '_')
+        ),
+        ',\\n'
+      ) AS bloque 
+    FROM ORIGEN a  
+    JOIN DESTINO b ON UPPER(a.field_path) = UPPER(b.field_path);`
+                    });
+    
+                    // R07 FINAL para tabla con RECORD
+                    queries.push({
+                        code: 'R07-FINAL',
+                        title: 'R07 Final: Valores Coinciden (RECORD)',
+                        description: 'PASO 2: Reemplazar <<BLOQUE>> con el resultado del auxiliar',
+                        isAuxiliary: false,
+                        query: `-- R07 FINAL: Valores Coinciden (RECORD/ARRAY)
+    -- PASO 2: Reemplazar <<BLOQUE>> con el resultado del query auxiliar
+    -- Resultado esperado: 0 registros con diferencias
+    -- NOTA: Si desea obtener el total de diferencias, quitar el LIMIT 1000
+    
+    WITH
+      origen AS (
+        SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\` o
+        ${v.joinOrigen ? v.joinOrigen + '\n    ' : ''}${v.filtroOrigen ? 'WHERE ' + v.filtroOrigen : ''}
+      ),
+      destino AS (
+        SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` d
+        ${v.joinDestino ? v.joinDestino + '\n    ' : ''}${v.filtroDestino ? 'WHERE ' + v.filtroDestino : ''}
+      )
+    SELECT DISTINCT
+        ${pkList.map(pk => `COALESCE(CAST(o.${pk} AS STRING), CAST(d.${pk} AS STRING)) AS ${pk}`).join(',\n    ')},
+        CASE 
+            WHEN o.${pkList[0]} IS NULL THEN 'SOLO_DESTINO'
+            WHEN d.${pkList[0]} IS NULL THEN 'SOLO_ORIGEN'
+            ELSE 'DIFERENTE'
+        END as tipo_diferencia,
+        <<BLOQUE>>
+    FROM origen o
+    LEFT JOIN UNNEST(o.${v.recordColumnOrigen}) oa
+    FULL OUTER JOIN destino d
+        ON ${pkList.map(pk => `CAST(o.${pk} AS STRING) = CAST(d.${pk} AS STRING)`).join(' AND ')}
+    LEFT JOIN UNNEST(d.${v.recordColumnDestino}) da
+    ORDER BY 1
+    LIMIT 1000;`
+                    });
+                }
+    
+    
+            } else {
+                // ─── Modo: EXECUTE IMMEDIATE (un solo script) ───
+                if (currentTableType === 'simple') {
+                    queries.push({
+                        code: 'R07',
+                        title: 'R07: Valores Coinciden (EXECUTE IMMEDIATE)',
+                        description: 'Genera bloque de comparación y ejecuta FULL OUTER JOIN en un solo script',
+                        isAuxiliary: false,
+                        query: `-- R07: Valores Coinciden (EXECUTE IMMEDIATE)
+-- Resultado esperado: 0 registros con diferencias
+
+DECLARE bloque STRING;
+
+SET bloque = (
+    WITH ORIGEN AS (
+        SELECT column_name
+        FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.INFORMATION_SCHEMA.COLUMNS\`
+        WHERE table_name = '${v.tablaOrigen}'${bytesFilterOrigen}
+          AND column_name NOT IN (${pkList.map(pk => "'" + pk + "'").join(', ')})
     ),
-    ', '
-  ) AS bloque 
-FROM ORIGEN a  
-JOIN DESTINO b ON UPPER(a.column_name) = UPPER(b.column_name);`
-                });
+    DESTINO AS (
+        SELECT column_name
+        FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
+        WHERE table_name = '${v.tablaDestino}'${bytesFilterDestino}
+          AND column_name NOT IN (${pkList.map(pk => "'" + pk + "'").join(', ')})
+    )
+    SELECT STRING_AGG(
+        CONCAT(
+            "A.", a.column_name, " AS valor_origen_", a.column_name, ", ",
+            "B.", b.column_name, " AS valor_destino_", b.column_name, ", ",
+            "CASE WHEN A.", a.column_name, " IS NULL AND B.", b.column_name, " IS NULL THEN 'IGUAL' ",
+            "WHEN UPPER(TRIM(CAST(A.", a.column_name, " AS STRING))) = UPPER(TRIM(CAST(B.", b.column_name, " AS STRING))) THEN 'IGUAL' ",
+            "ELSE 'DIFERENTE' END AS estado_", a.column_name
+        ),
+        ',\\n'
+    )
+    FROM ORIGEN a
+    JOIN DESTINO b ON UPPER(a.column_name) = UPPER(b.column_name)
+);
 
-                // R07 FINAL para tabla simple
-                queries.push({
-                    code: 'R07-FINAL',
-                    title: 'R07 Final: Valores Coinciden',
-                    description: 'PASO 2: Pegar el bloque generado donde indica',
-                    isAuxiliary: false,
-                    query: `-- R07 FINAL: Valores Coinciden (por PK) - TABLA SIMPLE
--- PASO 2: Pegar el 'bloque' del query auxiliar donde indica
--- Resultado esperado: 0 registros diferentes
--- NOTA: Si desea obtener el total de diferencias, quitar el LIMIT 1000
-
+EXECUTE IMMEDIATE '''
 WITH
   origen AS (
     SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\`
@@ -3807,78 +4543,58 @@ WITH
     ${filtroDestinoR07 ? 'WHERE ' + filtroDestinoR07 : ''}
   )
 SELECT DISTINCT
-    ${pkList.map(pk => `COALESCE(CAST(A.${pk} AS STRING), CAST(B.${pk} AS STRING)) AS ${pk}`).join(',\n    ')},
-    -- ═══════════════════════════════════════════════════════════════
-    -- PEGAR AQUÍ EL 'bloque' DEL QUERY R07-AUX
-    -- Ejemplo:
-    -- A.campo1 AS valor_origen_campo1,
-    -- B.campo1 AS valor_destino_campo1,
-    -- CASE WHEN A.campo1 IS NULL AND B.campo1 IS NULL THEN 'IGUAL' ... END AS estado_campo1,
-    -- ═══════════════════════════════════════════════════════════════
+    ${pkList.map(pk => "COALESCE(CAST(A." + pk + " AS STRING), CAST(B." + pk + " AS STRING)) AS " + pk).join(',\n    ')},
+    ''' || bloque || '''
 FROM origen A
 FULL OUTER JOIN destino B
-    ON ${pkList.map(pk => `CAST(A.${pk} AS STRING) = CAST(B.${pk} AS STRING)`).join(' AND ')}
-ORDER BY 1
-LIMIT 1000;`
-                });
-            } else {
-                // R07 AUXILIAR para tabla con RECORD
-                queries.push({
-                    code: 'R07-AUX',
-                    title: 'R07 Auxiliar: Obtener Campos RECORD',
-                    description: 'PASO 1: Ejecutar primero para obtener campos del RECORD',
-                    isAuxiliary: true,
-                    query: `-- R07 AUXILIAR: Obtener campos del RECORD para comparar
--- PASO 1: Ejecutar este query y copiar el resultado 'bloque'
+    ON ${pkList.map(pk => "COALESCE(CAST(A." + pk + " AS STRING), '') = COALESCE(CAST(B." + pk + " AS STRING), '')").join(' AND ')}
+ORDER BY ${pkList.map((_, i) => i + 1).join(', ')}
+LIMIT 1000;
+''';`
+                    });
+                } else {
+                    queries.push({
+                        code: 'R07',
+                        title: 'R07: Valores Coinciden RECORD (EXECUTE IMMEDIATE)',
+                        description: 'Genera bloque de comparación RECORD y ejecuta FULL OUTER JOIN en un solo script',
+                        isAuxiliary: false,
+                        query: `-- R07: Valores Coinciden RECORD/ARRAY (EXECUTE IMMEDIATE)
+-- Resultado esperado: 0 registros con diferencias
 
 DECLARE record_col_origen STRING DEFAULT '${v.recordColumnOrigen}';
 DECLARE record_col_destino STRING DEFAULT '${v.recordColumnDestino}';
+DECLARE bloque STRING;
 
-WITH ORIGEN AS (
-  SELECT field_path 
-  FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS\`
-  WHERE table_name = '${v.tablaOrigen}' 
-    AND column_name = record_col_origen
-    AND field_path != record_col_origen${bytesFilterOrigen}
-), 
-DESTINO AS (
-  SELECT field_path 
-  FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS\`
-  WHERE table_name = '${v.tablaDestino}'
-    AND column_name = record_col_destino
-    AND field_path != record_col_destino${bytesFilterDestino}
-)
-SELECT 
-  STRING_AGG(
-    CONCAT(
-      'oa.', REPLACE(a.field_path, CONCAT(record_col_origen, '.'), ''), 
-      ' AS origen_', REPLACE(a.field_path, '.', '_'), ', ',
-      'da.', REPLACE(b.field_path, CONCAT(record_col_destino, '.'), ''), 
-      ' AS destino_', REPLACE(b.field_path, '.', '_'), ', ',
-      "CASE WHEN oa.", REPLACE(a.field_path, CONCAT(record_col_origen, '.'), ''), 
-      " IS NULL AND da.", REPLACE(b.field_path, CONCAT(record_col_destino, '.'), ''), 
-      " IS NULL THEN 'IGUAL' WHEN CAST(oa.", REPLACE(a.field_path, CONCAT(record_col_origen, '.'), ''), 
-      " AS STRING) = CAST(da.", REPLACE(b.field_path, CONCAT(record_col_destino, '.'), ''), 
-      " AS STRING) THEN 'IGUAL' ELSE 'DIFERENTE' END AS estado_", 
-      REPLACE(a.field_path, '.', '_')
+SET bloque = (
+    WITH ORIGEN AS (
+        SELECT field_path
+        FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS\`
+        WHERE table_name = '${v.tablaOrigen}'
+          AND column_name = record_col_origen
+          AND field_path != record_col_origen${bytesFilterOrigen}
     ),
-    ',\\n'
-  ) AS bloque 
-FROM ORIGEN a  
-JOIN DESTINO b ON UPPER(a.field_path) = UPPER(b.field_path);`
-                });
+    DESTINO AS (
+        SELECT field_path
+        FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS\`
+        WHERE table_name = '${v.tablaDestino}'
+          AND column_name = record_col_destino
+          AND field_path != record_col_destino${bytesFilterDestino}
+    )
+    SELECT STRING_AGG(
+        CONCAT(
+            "oa.", REPLACE(a.field_path, CONCAT(record_col_origen, '.'), ''), " AS origen_", REPLACE(a.field_path, '.', '_'), ", ",
+            "da.", REPLACE(b.field_path, CONCAT(record_col_destino, '.'), ''), " AS destino_", REPLACE(b.field_path, '.', '_'), ", ",
+            "CASE WHEN oa.", REPLACE(a.field_path, CONCAT(record_col_origen, '.'), ''), " IS NULL AND da.", REPLACE(b.field_path, CONCAT(record_col_destino, '.'), ''), " IS NULL THEN 'IGUAL' ",
+            "WHEN CAST(oa.", REPLACE(a.field_path, CONCAT(record_col_origen, '.'), ''), " AS STRING) = CAST(da.", REPLACE(b.field_path, CONCAT(record_col_destino, '.'), ''), " AS STRING) THEN 'IGUAL' ",
+            "ELSE 'DIFERENTE' END AS estado_", REPLACE(a.field_path, '.', '_')
+        ),
+        ',\\n'
+    )
+    FROM ORIGEN a
+    JOIN DESTINO b ON UPPER(a.field_path) = UPPER(b.field_path)
+);
 
-                // R07 FINAL para tabla con RECORD
-                queries.push({
-                    code: 'R07-FINAL',
-                    title: 'R07 Final: Valores Coinciden (RECORD)',
-                    description: 'PASO 2: Reemplazar <<BLOQUE>> con el resultado del auxiliar',
-                    isAuxiliary: false,
-                    query: `-- R07 FINAL: Valores Coinciden (RECORD/ARRAY)
--- PASO 2: Reemplazar <<BLOQUE>> con el resultado del query auxiliar
--- Resultado esperado: 0 registros con diferencias
--- NOTA: Si desea obtener el total de diferencias, quitar el LIMIT 1000
-
+EXECUTE IMMEDIATE '''
 WITH
   origen AS (
     SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\` o
@@ -3889,32 +4605,35 @@ WITH
     ${v.joinDestino ? v.joinDestino + '\n    ' : ''}${v.filtroDestino ? 'WHERE ' + v.filtroDestino : ''}
   )
 SELECT DISTINCT
-    ${pkList.map(pk => `COALESCE(CAST(o.${pk} AS STRING), CAST(d.${pk} AS STRING)) AS ${pk}`).join(',\n    ')},
-    CASE 
+    ${pkList.map(pk => "COALESCE(CAST(o." + pk + " AS STRING), CAST(d." + pk + " AS STRING)) AS " + pk).join(',\n    ')},
+    CASE
         WHEN o.${pkList[0]} IS NULL THEN 'SOLO_DESTINO'
         WHEN d.${pkList[0]} IS NULL THEN 'SOLO_ORIGEN'
         ELSE 'DIFERENTE'
-    END as tipo_diferencia,
-    <<BLOQUE>>
+    END AS tipo_diferencia,
+    ''' || bloque || '''
 FROM origen o
 LEFT JOIN UNNEST(o.${v.recordColumnOrigen}) oa
 FULL OUTER JOIN destino d
-    ON ${pkList.map(pk => `CAST(o.${pk} AS STRING) = CAST(d.${pk} AS STRING)`).join(' AND ')}
+    ON ${pkList.map(pk => "COALESCE(CAST(o." + pk + " AS STRING), '') = COALESCE(CAST(d." + pk + " AS STRING), '')").join(' AND ')}
 LEFT JOIN UNNEST(d.${v.recordColumnDestino}) da
-ORDER BY 1
-LIMIT 1000;`
-                });
+ORDER BY ${pkList.map((_, i) => i + 1).join(', ')}
+LIMIT 1000;
+''';`
+                    });
+                }
             }
 
-
-            // R08: Resumen de Diferencias campo a campo (2 pasos)
-            if (currentTableType === 'simple') {
-                queries.push({
-                    code: 'R08-AUX',
-                    title: 'R08 Auxiliar: Generar Bloques de Comparaci\u00f3n',
-                    description: 'PASO 1: Ejecutar primero para obtener bloque_diff y bloque_sum',
-                    isAuxiliary: true,
-                    query: `-- R08 AUXILIAR: Generar bloques para Resumen de Diferencias
+            // R08: Resumen de Diferencias campo a campo (EXECUTE IMMEDIATE)
+            if (stepByStep) {
+                // ─── Modo: Ejecución por pasos (AUX + FINAL) ───
+                if (currentTableType === 'simple') {
+                    queries.push({
+                        code: 'R08-AUX',
+                        title: 'R08 Auxiliar: Generar Bloques de Comparación',
+                        description: 'PASO 1: Ejecutar primero para obtener bloque_diff y bloque_sum',
+                        isAuxiliary: true,
+                        query: `-- R08 AUXILIAR: Generar bloques para Resumen de Diferencias
 -- PASO 1: Ejecutar y copiar 'bloque_diff' y 'bloque_sum'
 -- bloque_diff: va dentro del SELECT del CTE joined
 -- bloque_sum: va en el SELECT final
@@ -3944,14 +4663,14 @@ SELECT
   ) AS bloque_sum
 FROM ORIGEN a
 JOIN DESTINO b ON UPPER(a.column_name) = UPPER(b.column_name);`
-                });
+                    });
 
-                queries.push({
-                    code: 'R08-FINAL',
-                    title: 'R08 Final: Resumen de Diferencias',
-                    description: 'PASO 2: Pegar bloque_diff y bloque_sum donde indica',
-                    isAuxiliary: false,
-                    query: `-- R08 FINAL: Resumen de Diferencias campo a campo
+                    queries.push({
+                        code: 'R08-FINAL',
+                        title: 'R08 Final: Resumen de Diferencias',
+                        description: 'PASO 2: Pegar bloque_diff y bloque_sum donde indica',
+                        isAuxiliary: false,
+                        query: `-- R08 FINAL: Resumen de Diferencias campo a campo
 -- PASO 2: Pegar 'bloque_diff' y 'bloque_sum' donde indica
 -- Resultado esperado: dif_CAMPO = 0 para todos los campos (sin diferencias)
 
@@ -3967,32 +4686,31 @@ WITH
   joined AS (
     SELECT
       ${pkList.map(pk => `COALESCE(CAST(A.${pk} AS STRING), CAST(B.${pk} AS STRING)) AS ${pk}`).join(',\n      ')},
-      -- \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
-      -- PEGAR AQU\u00cd EL 'bloque_diff' DEL QUERY R08-AUX
+      -- ═══════════════════════════════════════════════════════════════
+      -- PEGAR AQUÍ EL 'bloque_diff' DEL QUERY R08-AUX
       -- Ejemplo:
       -- CASE WHEN COALESCE(CAST(A.campo AS STRING), '') = COALESCE(CAST(B.campo AS STRING), '') THEN 0 ELSE 1 END AS diff_campo,
-      -- \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+      -- ═══════════════════════════════════════════════════════════════
     FROM origen A
     FULL OUTER JOIN destino B
       ON ${pkList.map(pk => `CAST(A.${pk} AS STRING) = CAST(B.${pk} AS STRING)`).join(' AND ')}
   )
 SELECT
   COUNT(1) AS total_registros,
-  -- \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
-  -- PEGAR AQU\u00cd EL 'bloque_sum' DEL QUERY R08-AUX
+  -- ═══════════════════════════════════════════════════════════════
+  -- PEGAR AQUÍ EL 'bloque_sum' DEL QUERY R08-AUX
   -- Ejemplo:
   -- SUM(diff_campo) AS dif_campo,
-  -- \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+  -- ═══════════════════════════════════════════════════════════════
 FROM joined;`
-                });
-            } else {
-                // R08 para tabla RECORD
-                queries.push({
-                    code: 'R08-AUX',
-                    title: 'R08 Auxiliar: Generar Bloques de Comparaci\u00f3n (RECORD)',
-                    description: 'PASO 1: Ejecutar primero para obtener bloque_diff y bloque_sum',
-                    isAuxiliary: true,
-                    query: `-- R08 AUXILIAR: Generar bloques para Resumen de Diferencias (RECORD)
+                    });
+                } else {
+                    queries.push({
+                        code: 'R08-AUX',
+                        title: 'R08 Auxiliar: Generar Bloques de Comparación (RECORD)',
+                        description: 'PASO 1: Ejecutar primero para obtener bloque_diff y bloque_sum',
+                        isAuxiliary: true,
+                        query: `-- R08 AUXILIAR: Generar bloques para Resumen de Diferencias (RECORD)
 -- PASO 1: Ejecutar y copiar 'bloque_diff' y 'bloque_sum' (solo campos RECORD + PKs)
 
 DECLARE record_col_origen STRING DEFAULT '${v.recordColumnOrigen}';
@@ -4019,14 +4737,14 @@ SELECT
   ) AS bloque_sum
 FROM campos_record_origen a
 JOIN campos_record_destino b ON UPPER(a.campo) = UPPER(b.campo);`
-                });
+                    });
 
-                queries.push({
-                    code: 'R08-FINAL',
-                    title: 'R08 Final: Resumen de Diferencias (RECORD)',
-                    description: 'PASO 2: Pegar bloque_diff y bloque_sum donde indica',
-                    isAuxiliary: false,
-                    query: `-- R08 FINAL: Resumen de Diferencias campo a campo (RECORD)
+                    queries.push({
+                        code: 'R08-FINAL',
+                        title: 'R08 Final: Resumen de Diferencias (RECORD)',
+                        description: 'PASO 2: Pegar bloque_diff y bloque_sum donde indica',
+                        isAuxiliary: false,
+                        query: `-- R08 FINAL: Resumen de Diferencias campo a campo (RECORD)
 -- PASO 2: Pegar 'bloque_diff' y 'bloque_sum' donde indica
 -- Resultado esperado: dif_CAMPO = 0 para todos (sin diferencias)
 
@@ -4042,7 +4760,7 @@ WITH
   joined AS (
     SELECT
       ${pkList.map(pk => `COALESCE(CAST(A.${pk} AS STRING), CAST(B.${pk} AS STRING)) AS ${pk}`).join(',\n      ')},
-      -- PEGAR AQU\u00cd EL 'bloque_diff' (campos base + campos RECORD)
+      -- PEGAR AQUÍ EL 'bloque_diff' (campos base + campos RECORD)
     FROM origen A
     LEFT JOIN UNNEST(A.${v.recordColumnOrigen}) oa
     FULL OUTER JOIN destino B
@@ -4051,10 +4769,147 @@ WITH
   )
 SELECT
   COUNT(1) AS total_registros,
-  -- PEGAR AQU\u00cd EL 'bloque_sum'
+  -- PEGAR AQUÍ EL 'bloque_sum' DEL QUERY R08-AUX
 FROM joined;`
+                    });
+                }
+            } else {
+                // ─── Modo: EXECUTE IMMEDIATE (un solo script) ───
+                if (currentTableType === 'simple') {
+                queries.push({
+                    code: 'R08',
+                    title: 'R08: Resumen de Diferencias (EXECUTE IMMEDIATE)',
+                    description: 'Genera bloques de comparaci\u00f3n y ejecuta el resumen campo a campo en un solo script',
+                    isAuxiliary: false,
+                    query: `-- R08: Resumen de Diferencias campo a campo (EXECUTE IMMEDIATE)
+-- Resultado esperado: dif_CAMPO = 0 para todos los campos (sin diferencias)
+
+DECLARE bloque_diff STRING;
+DECLARE bloque_sum STRING;
+
+SET (bloque_diff, bloque_sum) = (
+    WITH ORIGEN AS (
+        SELECT column_name
+        FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.INFORMATION_SCHEMA.COLUMNS\`
+        WHERE table_name = '${v.tablaOrigen}'
+          AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD')${bytesFilterOrigen}
+    ),
+    DESTINO AS (
+        SELECT column_name
+        FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
+        WHERE table_name = '${v.tablaDestino}'
+          AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD')${bytesFilterDestino}
+    )
+    SELECT AS STRUCT
+        STRING_AGG(
+            CONCAT(
+                "CASE WHEN COALESCE(CAST(A.", a.column_name, " AS STRING), '') = COALESCE(CAST(B.", b.column_name, " AS STRING), '') THEN 0 ELSE 1 END AS diff_", a.column_name
+            ), ',\\n'
+        ) AS bloque_diff,
+        STRING_AGG(
+            CONCAT("SUM(diff_", a.column_name, ") AS dif_", a.column_name),
+            ',\\n'
+        ) AS bloque_sum
+    FROM ORIGEN a
+    JOIN DESTINO b ON UPPER(a.column_name) = UPPER(b.column_name)
+);
+
+EXECUTE IMMEDIATE '''
+WITH
+  origen AS (
+    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\` o
+    ${v.joinOrigen ? v.joinOrigen + '\n    ' : ''}${filtroOrigenR07 ? 'WHERE ' + filtroOrigenR07 : ''}
+  ),
+  destino AS (
+    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` d
+    ${v.joinDestino ? v.joinDestino + '\n    ' : ''}${filtroDestinoR07 ? 'WHERE ' + filtroDestinoR07 : ''}
+  ),
+  joined AS (
+    SELECT
+      ${pkList.map(pk => `COALESCE(CAST(A.${pk} AS STRING), CAST(B.${pk} AS STRING)) AS ${pk}`).join(',\n      ')},
+      ''' || bloque_diff || '''
+    FROM origen A
+    FULL OUTER JOIN destino B
+      ON ${pkList.map(pk => `CAST(A.${pk} AS STRING) = CAST(B.${pk} AS STRING)`).join(' AND ')}
+  )
+SELECT
+  COUNT(1) AS total_registros,
+  ''' || bloque_sum || '''
+FROM joined;
+''';`
                 });
-            }
+                } else {
+                // R08 para tabla RECORD (EXECUTE IMMEDIATE)
+                queries.push({
+                    code: 'R08',
+                    title: 'R08: Resumen de Diferencias RECORD (EXECUTE IMMEDIATE)',
+                    description: 'Genera bloques de comparaci\u00f3n de campos RECORD y ejecuta en un solo script',
+                    isAuxiliary: false,
+                    query: `-- R08: Resumen de Diferencias campo a campo RECORD (EXECUTE IMMEDIATE)
+-- Resultado esperado: dif_CAMPO = 0 para todos (sin diferencias)
+
+DECLARE record_col_origen STRING DEFAULT '${v.recordColumnOrigen}';
+DECLARE record_col_destino STRING DEFAULT '${v.recordColumnDestino}';
+DECLARE bloque_diff STRING;
+DECLARE bloque_sum STRING;
+
+SET (bloque_diff, bloque_sum) = (
+    WITH campos_record_origen AS (
+        SELECT REPLACE(field_path, CONCAT(record_col_origen, '.'), '') AS campo
+        FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS\`
+        WHERE table_name = '${v.tablaOrigen}'
+          AND column_name = record_col_origen
+          AND field_path != record_col_origen${bytesFilterOrigen}
+    ),
+    campos_record_destino AS (
+        SELECT REPLACE(field_path, CONCAT(record_col_destino, '.'), '') AS campo
+        FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS\`
+        WHERE table_name = '${v.tablaDestino}'
+          AND column_name = record_col_destino
+          AND field_path != record_col_destino${bytesFilterDestino}
+    )
+    SELECT AS STRUCT
+        STRING_AGG(
+            CONCAT(
+                "CASE WHEN COALESCE(CAST(oa.", a.campo, " AS STRING), '') = COALESCE(CAST(da.", b.campo, " AS STRING), '') THEN 0 ELSE 1 END AS diff_", a.campo
+            ), ',\\n'
+        ) AS bloque_diff,
+        STRING_AGG(
+            CONCAT("SUM(diff_", a.campo, ") AS dif_", a.campo),
+            ',\\n'
+        ) AS bloque_sum
+    FROM campos_record_origen a
+    JOIN campos_record_destino b ON UPPER(a.campo) = UPPER(b.campo)
+);
+
+EXECUTE IMMEDIATE '''
+WITH
+  origen AS (
+    SELECT * FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\` o
+    ${v.joinOrigen ? v.joinOrigen + '\n    ' : ''}${v.filtroOrigen ? 'WHERE ' + v.filtroOrigen : ''}
+  ),
+  destino AS (
+    SELECT * FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` d
+    ${v.joinDestino ? v.joinDestino + '\n    ' : ''}${v.filtroDestino ? 'WHERE ' + v.filtroDestino : ''}
+  ),
+  joined AS (
+    SELECT
+      ${pkList.map(pk => `COALESCE(CAST(A.${pk} AS STRING), CAST(B.${pk} AS STRING)) AS ${pk}`).join(',\n      ')},
+      ''' || bloque_diff || '''
+    FROM origen A
+    LEFT JOIN UNNEST(A.${v.recordColumnOrigen}) oa
+    FULL OUTER JOIN destino B
+      ON ${pkList.map(pk => `CAST(A.${pk} AS STRING) = CAST(B.${pk} AS STRING)`).join(' AND ')}
+    LEFT JOIN UNNEST(B.${v.recordColumnDestino}) da
+  )
+SELECT
+  COUNT(1) AS total_registros,
+  ''' || bloque_sum || '''
+FROM joined;
+''';`
+                });
+                }
+            } // end stepByStep else for R08
 
             return queries;
         }
@@ -5939,6 +6794,380 @@ FROM campos;`
             return queries;
         }
 
+        // ═══════════════════════════════════════════════════════════════
+        // generateAdditionalQueries: Queries adicionales
+        // Genera 2 queries:
+        //   ADEX-01: Query para desencriptar tabla (SET sql = ... + SELECT sql;)
+        //   ADEX-02: Reporte de casuísticas con DICCIONARIO de mapeo de columnas
+        // ═══════════════════════════════════════════════════════════════
+        function generateAdditionalQueries(v) {
+            const queries = [];
+            const isRecord = currentTableType === 'record';
+            const pkList = v.primaryKeys
+                ? v.primaryKeys.split(',').map(p => p.trim()).filter(p => p)
+                : ['id'];
+            const pkListQuoted    = pkList.map(pk => "'" + pk + "'").join(', ');
+            const pkListQuotedUpp = pkList.map(pk => "'" + pk.toUpperCase() + "'").join(', ');
+            const pkColumns       = pkList.join(',\n    ');
+            const pkJoinOn        = pkList.map(pk => 'D.' + pk + ' = O.' + pk).join('\n           AND ');
+            const pkStructCols    = pkList.join(', ');
+            const pkSelectD       = pkList.map(pk => 'D.' + pk).join(', ');
+
+            const whereOrigenRaw  = v.filtroOrigen  ? v.filtroOrigen.trim()  : '';
+            const whereDestinoRaw = v.filtroDestino ? v.filtroDestino.trim() : '';
+            const whereOrigenStr  = whereOrigenRaw  || 'TRUE';
+            const whereDestinoStr = whereDestinoRaw || 'TRUE';
+
+            // Filtro bytes para INFORMATION_SCHEMA (excluye BYTES en modo claro)
+            const bytesFilterDestino = v.destinoHasBytes
+                ? "\n          AND data_type != 'BYTES'" : '';
+
+            // ──────────────────────────────────────────────────────────────
+            // ADEX-01: Query para desencriptar tabla
+            //   - Solo muestra el SET sql + SELECT sql (sin EXECUTE IMMEDIATE)
+            //   - El usuario copia el valor de sql y lo ejecuta en BigQuery
+            // ──────────────────────────────────────────────────────────────
+            if (isRecord) {
+                const recCol = v.recordColumnDestino || 'RECORD_COL';
+                queries.push({
+                    code: 'ADEX-01',
+                    title: 'Query para desencriptar tabla (RECORD)',
+                    description: 'Genera dinámicamente el SELECT sobre la columna RECORD. Copia el valor de "sql" y ejecútalo en BigQuery.',
+                    isAuxiliary: false,
+                    query: `-- Query para desencriptar tabla RECORD: ${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}
+-- 1. Ejecuta este bloque para ver el SELECT generado en la columna "sql"
+-- 2. Copia el contenido de "sql" y ejecútalo en BigQuery
+-- Ajusta codigo_tipo según el campo encriptado.
+
+DECLARE project_id      STRING DEFAULT '${v.proyectoDestino}';
+DECLARE dataset_id      STRING DEFAULT '${v.datasetDestino}';
+DECLARE table_id        STRING DEFAULT '${v.tablaDestino}';
+DECLARE record_col      STRING DEFAULT '${recCol}';
+-- Condicion de filtro (sin WHERE). Deja TRUE para traer todo.
+DECLARE where_condition STRING DEFAULT """${whereDestinoStr}""";
+-- Codigos disponibles: C_DOCUMENT_NUMBER, C_DOCUMENT_TYPE, C_NAME, C_EMAIL, C_ADDRESS, C_CELLPHONE
+DECLARE codigo_tipo     STRING DEFAULT 'C_NAME';
+
+DECLARE sql STRING;
+
+SET sql = (
+    WITH pk_cols AS (
+        SELECT STRING_AGG(
+            CONCAT('    t.', column_name),
+            ',\\n' ORDER BY ordinal_position
+        ) AS pk_select
+        FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
+        WHERE table_name = table_id
+          AND column_name NOT IN (
+              SELECT column_name
+              FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
+              WHERE table_name = table_id
+                AND data_type IN ('ARRAY','RECORD','STRUCT')
+          )
+    ),
+    record_fields AS (
+        SELECT STRING_AGG(
+            CASE
+                WHEN data_type = 'BYTES' THEN
+                    FORMAT("    r.%s,\\n    '%s' AS v_tipo_%s",
+                           REPLACE(field_path, CONCAT(record_col, '.'), ''),
+                           codigo_tipo,
+                           REPLACE(REPLACE(field_path, CONCAT(record_col, '.'), ''), '.', '_'))
+                ELSE
+                    CONCAT('    r.', REPLACE(field_path, CONCAT(record_col, '.'), ''))
+            END,
+            ',\\n' ORDER BY field_path
+        ) AS rec_select
+        FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS\`
+        WHERE table_name = table_id
+          AND column_name = record_col
+          AND field_path != record_col
+    )
+    SELECT FORMAT(
+        'SELECT\\n%s,\\n%s\\nFROM %s.%s.%s AS t, UNNEST(t.%s) AS r\\nWHERE %s\\nLIMIT 100;',
+        pk_select, rec_select,
+        project_id, dataset_id, table_id, record_col,
+        where_condition
+    )
+    FROM pk_cols, record_fields
+);
+
+-- Muestra el SELECT generado (copia y pega en BigQuery para ejecutarlo)
+SELECT sql;`
+                });
+            } else {
+                queries.push({
+                    code: 'ADEX-01',
+                    title: 'Query para desencriptar tabla (Simple)',
+                    description: 'Genera dinámicamente el SELECT de la tabla destino. Copia el valor de "sql" y ejecútalo en BigQuery.',
+                    isAuxiliary: false,
+                    query: `-- Query para desencriptar tabla Simple: ${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}
+-- 1. Ejecuta este bloque para ver el SELECT generado en la columna "sql"
+-- 2. Copia el contenido de "sql" y ejecútalo en BigQuery
+-- Los campos BYTES se marcan con codigo_tipo. Ajústalo según el campo encriptado.
+
+DECLARE project_id      STRING DEFAULT '${v.proyectoDestino}';
+DECLARE dataset_id      STRING DEFAULT '${v.datasetDestino}';
+DECLARE table_id        STRING DEFAULT '${v.tablaDestino}';
+-- ⚠️ Condición de filtro (sin WHERE). Deja TRUE para traer todo.
+DECLARE where_condition STRING DEFAULT """${whereDestinoStr}""";
+-- ⚠️ Códigos: C_DOCUMENT_NUMBER, C_DOCUMENT_TYPE, C_NAME, C_EMAIL, C_ADDRESS, C_CELLPHONE
+DECLARE codigo_tipo     STRING DEFAULT 'C_NAME';
+
+DECLARE sql STRING;
+
+SET sql = (
+    SELECT
+        CONCAT(
+            'SELECT\\n',
+            STRING_AGG(
+                CASE
+                    WHEN data_type = 'BYTES' THEN
+                        FORMAT("    t.%s,\\n    '%s' AS v_tipo_%s",
+                               column_name,
+                               codigo_tipo,
+                               REPLACE(column_name, '.', '_'))
+                    ELSE
+                        CONCAT('    t.', column_name)
+                END,
+                ',\\n' ORDER BY ordinal_position
+            ),
+            FORMAT('\\nFROM %s.%s.%s AS t\\n', project_id, dataset_id, table_id),
+            IF(where_condition != '' AND where_condition != 'TRUE',
+               CONCAT('WHERE ', where_condition, '\\n'), ''),
+            'LIMIT 100;'
+        )
+    FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
+    WHERE table_name = table_id
+);
+
+-- Muestra el SELECT generado (copia y pega en BigQuery para ejecutarlo)
+SELECT sql;`
+                });
+            }
+
+            // ──────────────────────────────────────────────────────────────
+            // ADEX-02: Reporte de casuísticas con Validación de Metadatos
+            //   COLUMNAS_COMUNES = INNER JOIN origen ∩ destino (solo cols compartidas)
+            //   FORMAT("""...""") evita conflictos de comillas simples
+            // ──────────────────────────────────────────────────────────────
+            if (isRecord) {
+                // RECORD: AMBAS tablas tienen ARRAY/RECORD → se unnestean en CTEs
+                const recColOrigen  = v.recordColumnOrigen  || 'RECORD_COL_ORIGEN';
+                const recColDestino = v.recordColumnDestino || 'RECORD_COL_DESTINO';
+                // PKs referenciados desde el alias DA (destino_cte)
+                const pkJoinCte   = pkList.map(pk => 'DA.' + pk + ' = O.' + pk).join('\n               AND ');
+                const pkSelectDA  = pkList.map(pk => 'DA.' + pk).join(', ');
+                queries.push({
+                    code: 'ADEX-02',
+                    title: 'Reporte de casuísticas (RECORD)',
+                    description: 'Compara campos del RECORD de origen vs RECORD de destino. Metadatos via COLUMN_FIELD_PATHS en ambas tablas.',
+                    isAuxiliary: false,
+                    query: `-- Reporte de casuísticas RECORD con Validación de Metadatos
+-- Origen : ${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}  [RECORD: ${recColOrigen}]
+-- Destino: ${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}  [RECORD: ${recColDestino}]
+
+DECLARE bloque STRING;
+
+SET bloque = (
+    WITH
+    METADATOS_ORIGEN AS (
+        -- Campos dentro del RECORD del origen (excluye el campo raíz y tipos complejos)
+        SELECT REPLACE(field_path, CONCAT('${recColOrigen}', '.'), '') AS column_name
+        FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS\`
+        WHERE table_name  = '${v.tablaOrigen}'
+          AND column_name = '${recColOrigen}'
+          AND field_path  != '${recColOrigen}'
+          AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD', 'GEOGRAPHY', 'JSON')
+    ),
+    METADATOS_DESTINO AS (
+        -- Campos dentro del RECORD del destino (excluye el campo raíz y tipos complejos)
+        SELECT REPLACE(field_path, CONCAT('${recColDestino}', '.'), '') AS column_name
+        FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS\`
+        WHERE table_name  = '${v.tablaDestino}'
+          AND column_name = '${recColDestino}'
+          AND field_path  != '${recColDestino}'
+          AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD', 'GEOGRAPHY', 'JSON')${bytesFilterDestino}
+    ),
+    -- Solo campos que existan en AMBAS tablas (excluyendo PKs)
+    COLUMNAS_COMUNES AS (
+        SELECT d.column_name
+        FROM METADATOS_DESTINO d
+        INNER JOIN METADATOS_ORIGEN o ON UPPER(d.column_name) = UPPER(o.column_name)
+        WHERE UPPER(d.column_name) NOT IN (${pkListQuotedUpp})
+    )
+    SELECT STRING_AGG(
+        FORMAT("""
+          SELECT
+            '${recColOrigen}' AS array_nombre,
+            '%s'              AS campo,
+            (CASE
+              WHEN (O.%s IS NULL OR TRIM(CAST(O.%s AS STRING)) = '')
+                   AND (DA.%s IS NOT NULL AND TRIM(CAST(DA.%s AS STRING)) <> '')
+                   THEN 'Solo_en_destino_Business'
+              WHEN (O.%s IS NOT NULL AND TRIM(CAST(O.%s AS STRING)) <> '')
+                   AND (DA.%s IS NULL OR TRIM(CAST(DA.%s AS STRING)) = '')
+                   THEN 'Solo_en_origen_Produccion'
+              WHEN O.%s IS NOT NULL AND DA.%s IS NOT NULL
+                   AND LOWER(TRIM(CAST(O.%s AS STRING))) = LOWER(TRIM(CAST(DA.%s AS STRING)))
+                   AND TRIM(CAST(O.%s AS STRING)) <> TRIM(CAST(DA.%s AS STRING))
+                   THEN 'Diferencia_mayusculas_minusculas'
+              WHEN O.%s IS NOT NULL AND DA.%s IS NOT NULL
+                   AND TRIM(CAST(O.%s AS STRING)) = TRIM(CAST(DA.%s AS STRING))
+                   AND CAST(O.%s AS STRING) <> CAST(DA.%s AS STRING)
+                   THEN 'Diferencia_espacios_trim'
+              ELSE 'Valor_distinto_otro'
+            END) AS casuistica,
+            ${pkSelectDA}
+          FROM destino_cte DA
+          INNER JOIN origen_cte O ON ${pkJoinCte}
+          WHERE COALESCE(TRIM(CAST(O.%s AS STRING)), '') <> COALESCE(TRIM(CAST(DA.%s AS STRING)), '')
+        """,
+        a.column_name, a.column_name, a.column_name, a.column_name, a.column_name,
+        a.column_name, a.column_name, a.column_name, a.column_name, a.column_name,
+        a.column_name, a.column_name, a.column_name, a.column_name, a.column_name,
+        a.column_name, a.column_name, a.column_name, a.column_name, a.column_name,
+        a.column_name, a.column_name, a.column_name
+        ),
+        '\\nUNION ALL'
+    )
+    FROM COLUMNAS_COMUNES a
+);
+
+IF bloque IS NULL THEN
+    SELECT 'Sin columnas comunes entre las dos tablas. Verifica los nombres y filtros.' AS error;
+ELSE
+    EXECUTE IMMEDIATE '''
+WITH origen_cte AS (
+    SELECT
+        ${pkList.map(pk => 't.' + pk).join(',\n        ')},
+        r.*
+    FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\` t,
+    UNNEST(t.${recColOrigen}) AS r
+    ${whereOrigenRaw ? 'WHERE ' + whereOrigenRaw : ''}
+),
+destino_cte AS (
+    SELECT
+        ${pkList.map(pk => 't.' + pk).join(',\n        ')},
+        d.*
+    FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` t,
+    UNNEST(t.${recColDestino}) AS d
+    ${whereDestinoRaw ? 'WHERE ' + whereDestinoRaw : ''}
+),
+diferencias AS (
+''' || bloque || '''
+)
+SELECT
+    array_nombre,
+    campo,
+    casuistica,
+    COUNT(*) AS cantidad_registros,
+    ARRAY_AGG(STRUCT(${pkStructCols})
+              ORDER BY ${pkStructCols} LIMIT 5) AS muestra_claves
+FROM diferencias
+GROUP BY 1, 2, 3
+ORDER BY 1, 2, 4 DESC;
+''';
+END IF;`
+                });
+            } else {
+                // SIMPLE: ambas tablas planas, columnas comunes por INNER JOIN de metadatos
+                queries.push({
+                    code: 'ADEX-02',
+                    title: 'Reporte de casuísticas (Simple)',
+                    description: 'Compara solo columnas presentes en AMBAS tablas (COLUMNAS_COMUNES). Excluye automáticamente campos que no existan en alguna de las dos.',
+                    isAuxiliary: false,
+                    query: `-- Reporte de casuísticas con Validación de Metadatos (Origen vs Destino)
+-- Origen : ${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}
+-- Destino: ${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}
+
+DECLARE bloque STRING;
+
+SET bloque = (
+    WITH
+    METADATOS_ORIGEN AS (
+        SELECT column_name
+        FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.INFORMATION_SCHEMA.COLUMNS\`
+        WHERE table_name = '${v.tablaOrigen}'
+    ),
+    METADATOS_DESTINO AS (
+        SELECT column_name
+        FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
+        WHERE table_name = '${v.tablaDestino}'
+          AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD', 'GEOGRAPHY', 'JSON')${bytesFilterDestino}
+    ),
+    -- Solo columnas que existan en AMBAS tablas (excluyendo PKs)
+    COLUMNAS_COMUNES AS (
+        SELECT d.column_name
+        FROM METADATOS_DESTINO d
+        INNER JOIN METADATOS_ORIGEN o ON UPPER(d.column_name) = UPPER(o.column_name)
+        WHERE UPPER(d.column_name) NOT IN (${pkListQuotedUpp})
+    )
+    SELECT STRING_AGG(
+        FORMAT("""
+          SELECT
+            '${v.tablaDestino}' AS tabla,
+            '%s'                AS campo,
+            (CASE
+              WHEN (O.%s IS NULL OR TRIM(CAST(O.%s AS STRING)) = '')
+                   AND (D.%s IS NOT NULL AND TRIM(CAST(D.%s AS STRING)) <> '')
+                   THEN 'Solo_en_destino'
+              WHEN (O.%s IS NOT NULL AND TRIM(CAST(O.%s AS STRING)) <> '')
+                   AND (D.%s IS NULL OR TRIM(CAST(D.%s AS STRING)) = '')
+                   THEN 'Solo_en_origen'
+              WHEN O.%s IS NOT NULL AND D.%s IS NOT NULL
+                   AND LOWER(TRIM(CAST(O.%s AS STRING))) = LOWER(TRIM(CAST(D.%s AS STRING)))
+                   AND TRIM(CAST(O.%s AS STRING)) <> TRIM(CAST(D.%s AS STRING))
+                   THEN 'Diferencia_mayusculas_minusculas'
+              WHEN O.%s IS NOT NULL AND D.%s IS NOT NULL
+                   AND TRIM(CAST(O.%s AS STRING)) = TRIM(CAST(D.%s AS STRING))
+                   AND CAST(O.%s AS STRING) <> CAST(D.%s AS STRING)
+                   THEN 'Diferencia_espacios_trim'
+              ELSE 'Valor_distinto_otro'
+            END) AS casuistica,
+            ${pkSelectD}
+          FROM \`${v.proyectoDestino}.${v.datasetDestino}.${v.tablaDestino}\` D
+          INNER JOIN \`${v.proyectoOrigen}.${v.datasetOrigen}.${v.tablaOrigen}\` O
+            ON ${pkJoinOn}
+          WHERE COALESCE(TRIM(CAST(O.%s AS STRING)), '') <> COALESCE(TRIM(CAST(D.%s AS STRING)), '')
+        """,
+        a.column_name, a.column_name, a.column_name, a.column_name, a.column_name,
+        a.column_name, a.column_name, a.column_name, a.column_name, a.column_name,
+        a.column_name, a.column_name, a.column_name, a.column_name, a.column_name,
+        a.column_name, a.column_name, a.column_name, a.column_name, a.column_name,
+        a.column_name, a.column_name, a.column_name
+        ),
+        '\\nUNION ALL'
+    )
+    FROM COLUMNAS_COMUNES a
+);
+
+-- Ejecución
+IF bloque IS NULL THEN
+    SELECT 'Sin columnas comunes entre las dos tablas. Verifica los nombres y filtros.' AS error;
+ELSE
+    EXECUTE IMMEDIATE FORMAT("""
+WITH diferencias AS (
+%s
+)
+SELECT
+    tabla,
+    campo,
+    casuistica,
+    COUNT(*) AS cantidad_registros,
+    ARRAY_AGG(STRUCT(${pkStructCols})
+              ORDER BY ${pkStructCols} LIMIT 5) AS muestra_claves
+FROM diferencias
+GROUP BY 1, 2, 3
+ORDER BY 1, 2, 4 DESC;
+""", bloque);
+END IF;`
+                });
+            }
+
+            return queries;
+        }
+
         function generateQueries() {
             if (!validateForm()) {
                 return;
@@ -5946,8 +7175,12 @@ FROM campos;`
 
             const v = getInputValues();
             let queries;
-            
-            if (currentInfoType === 'encrypted') {
+
+            const queriesAdicionales = document.getElementById('queriesAdicionalesCheck')?.checked ?? false;
+
+            if (queriesAdicionales) {
+                queries = generateAdditionalQueries(v);
+            } else if (currentInfoType === 'encrypted') {
                 queries = generateEncryptedQueries(v);
             } else if (currentTableType === 'different') {
                 queries = currentMode === 'ut' ? generateUTQueriesDifferent(v) : generateQAQueriesDifferent(v);
@@ -5957,6 +7190,25 @@ FROM campos;`
 
             const grid = document.getElementById('queriesGrid');
             grid.innerHTML = '';
+
+            // Banner de acceso al Desencriptador (solo en modo Queries adicionales)
+            if (queriesAdicionales) {
+                const banner = document.createElement('div');
+                banner.className = 'decryptor-banner';
+                banner.innerHTML = `
+                    <span class="decryptor-icon">🔓</span>
+                    <div class="decryptor-text">
+                        <strong>Herramienta de Desencriptado / Encriptado</strong>
+                        Para ejecutar las queries generadas, utiliza el servicio de desencriptado de Interseguro.
+                    </div>
+                    <a href="https://demo-decryptor-726731649140.us-central1.run.app/"
+                       target="_blank" rel="noopener noreferrer"
+                       class="btn-decryptor">
+                        🔑 Abrir Desencriptador
+                    </a>
+                `;
+                grid.appendChild(banner);
+            }
 
             queries.forEach((q, index) => {
                 const card = document.createElement('div');
@@ -6360,6 +7612,25 @@ FROM campos;`
             const fileName = `Validacion_${v.tablaDestino}_${currentMode.toUpperCase()}_${now.toISOString().slice(0,10)}.xlsx`;
             XLSX.writeFile(wb, fileName);
         }
+
+        // Inicializar estado de la UI al cargar la página
+        // Usar window.onload para asegurar que todo el DOM esté completamente cargado
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                changeMode();
+            });
+        } else {
+            // DOM ya está listo
+            changeMode();
+        }
+        
+        // También asegurar que se ejecute después de que la ventana esté completamente cargada
+        window.addEventListener('load', function() {
+            // Forzar actualización de visibilidad del checkbox después de la carga completa
+            setTimeout(function() {
+                updateBytesCheckboxVisibility();
+            }, 100);
+        });
     </script>
 </body>
 </html>
