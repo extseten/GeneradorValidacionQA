@@ -3993,12 +3993,83 @@ WHERE table_id = '${v.tablaDestino}';`
             });
 
             // R02: Cabeceras iguales
-            queries.push({
-                code: 'R02',
-                title: 'Cabeceras Iguales',
-                description: 'Valida que las columnas sean iguales entre ORIGEN y DESTINO',
-                isAuxiliary: false,
-                query: `-- R02: Cabeceras Iguales (Columnas)
+            if (currentTableType === 'record') {
+                // RECORD: comparar columnas NO-RECORD + sub-campos del RECORD (UNION)
+                queries.push({
+                    code: 'R02',
+                    title: 'Cabeceras Iguales (RECORD)',
+                    description: 'Valida columnas no-RECORD y sub-campos del RECORD entre ORIGEN y DESTINO',
+                    isAuxiliary: false,
+                    query: `-- R02: Cabeceras Iguales — Columnas no-RECORD + Sub-campos del RECORD
+-- Origen RECORD : ${v.recordColumnOrigen}
+-- Destino RECORD: ${v.recordColumnDestino}
+-- Resultado esperado: 0 registros (todos los campos presentes en ambas partes)
+
+-- ── Parte 1: columnas no-RECORD de la tabla ──────────────────────────────
+SELECT
+    COALESCE(o.campo, d.campo)    AS campo,
+    'tabla'                        AS seccion,
+    o.campo                        AS en_origen,
+    d.campo                        AS en_destino,
+    CASE
+        WHEN o.campo IS NULL THEN 'SOLO_DESTINO'
+        WHEN d.campo IS NULL THEN 'SOLO_ORIGEN'
+        ELSE 'AMBAS'
+    END AS ubicacion
+FROM (
+    SELECT column_name AS campo
+    FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.INFORMATION_SCHEMA.COLUMNS\`
+    WHERE table_name = '${v.tablaOrigen}'
+      AND data_type NOT IN ('ARRAY','STRUCT','RECORD','GEOGRAPHY','JSON')
+) o
+FULL OUTER JOIN (
+    SELECT column_name AS campo
+    FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
+    WHERE table_name = '${v.tablaDestino}'
+      AND data_type NOT IN ('ARRAY','STRUCT','RECORD','GEOGRAPHY','JSON')
+) d ON UPPER(o.campo) = UPPER(d.campo)
+WHERE o.campo IS NULL OR d.campo IS NULL
+
+UNION ALL
+
+-- ── Parte 2: sub-campos dentro del RECORD ────────────────────────────────
+SELECT
+    COALESCE(o.campo, d.campo)    AS campo,
+    '${v.recordColumnOrigen}'      AS seccion,
+    o.campo                        AS en_origen,
+    d.campo                        AS en_destino,
+    CASE
+        WHEN o.campo IS NULL THEN 'SOLO_DESTINO'
+        WHEN d.campo IS NULL THEN 'SOLO_ORIGEN'
+        ELSE 'AMBAS'
+    END AS ubicacion
+FROM (
+    SELECT REPLACE(field_path, CONCAT('${v.recordColumnOrigen}', '.'), '') AS campo
+    FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS\`
+    WHERE table_name = '${v.tablaOrigen}'
+      AND column_name = '${v.recordColumnOrigen}'
+      AND field_path  != '${v.recordColumnOrigen}'
+      AND data_type NOT IN ('ARRAY','STRUCT','RECORD','GEOGRAPHY','JSON')
+) o
+FULL OUTER JOIN (
+    SELECT REPLACE(field_path, CONCAT('${v.recordColumnDestino}', '.'), '') AS campo
+    FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS\`
+    WHERE table_name = '${v.tablaDestino}'
+      AND column_name = '${v.recordColumnDestino}'
+      AND field_path  != '${v.recordColumnDestino}'
+      AND data_type NOT IN ('ARRAY','STRUCT','RECORD','GEOGRAPHY','JSON')
+) d ON UPPER(o.campo) = UPPER(d.campo)
+WHERE o.campo IS NULL OR d.campo IS NULL
+ORDER BY seccion, campo;`
+                });
+            } else {
+                // SIMPLE: comparar columnas de la tabla
+                queries.push({
+                    code: 'R02',
+                    title: 'Cabeceras Iguales',
+                    description: 'Valida que las columnas sean iguales entre ORIGEN y DESTINO',
+                    isAuxiliary: false,
+                    query: `-- R02: Cabeceras Iguales (Columnas)
 -- Resultado esperado: 0 registros (todas las columnas en ambas)
 
 SELECT 
@@ -4021,15 +4092,83 @@ FULL OUTER JOIN (
     WHERE table_name = '${v.tablaDestino}'
 ) d ON UPPER(o.column_name) = UPPER(d.column_name)
 WHERE o.column_name IS NULL OR d.column_name IS NULL;`
-            });
+                });
+            }
 
             // R03: Tipos de datos
-            queries.push({
-                code: 'R03',
-                title: 'Tipos de Datos',
-                description: 'Valida que los tipos de datos sean correctos',
-                isAuxiliary: false,
-                query: `-- R03: Tipos de Datos
+            if (currentTableType === 'record') {
+                // RECORD: comparar tipos de columnas NO-RECORD + sub-campos del RECORD (UNION)
+                queries.push({
+                    code: 'R03',
+                    title: 'Tipos de Datos (RECORD)',
+                    description: 'Valida tipos de columnas no-RECORD y sub-campos del RECORD entre ORIGEN y DESTINO',
+                    isAuxiliary: false,
+                    query: `-- R03: Tipos de Datos — Columnas no-RECORD + Sub-campos del RECORD
+-- Origen RECORD : ${v.recordColumnOrigen}
+-- Destino RECORD: ${v.recordColumnDestino}
+-- Resultado esperado: 0 registros (todos los tipos coinciden)
+
+-- ── Parte 1: columnas no-RECORD de la tabla ──────────────────────────────
+SELECT
+    COALESCE(o.campo, d.campo)    AS campo,
+    'tabla'                        AS seccion,
+    o.tipo                         AS tipo_origen,
+    d.tipo                         AS tipo_destino,
+    CASE WHEN o.tipo = d.tipo THEN 'OK' ELSE 'DIFERENTE' END AS estado
+FROM (
+    SELECT column_name AS campo, data_type AS tipo
+    FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.INFORMATION_SCHEMA.COLUMNS\`
+    WHERE table_name = '${v.tablaOrigen}'
+      AND data_type NOT IN ('ARRAY','STRUCT','RECORD','GEOGRAPHY','JSON')
+) o
+FULL OUTER JOIN (
+    SELECT column_name AS campo, data_type AS tipo
+    FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
+    WHERE table_name = '${v.tablaDestino}'
+      AND data_type NOT IN ('ARRAY','STRUCT','RECORD','GEOGRAPHY','JSON')
+) d ON UPPER(o.campo) = UPPER(d.campo)
+WHERE o.tipo != d.tipo OR o.campo IS NULL OR d.campo IS NULL
+
+UNION ALL
+
+-- ── Parte 2: sub-campos dentro del RECORD ────────────────────────────────
+SELECT
+    COALESCE(o.campo, d.campo)    AS campo,
+    '${v.recordColumnOrigen}'      AS seccion,
+    o.tipo                         AS tipo_origen,
+    d.tipo                         AS tipo_destino,
+    CASE WHEN o.tipo = d.tipo THEN 'OK' ELSE 'DIFERENTE' END AS estado
+FROM (
+    SELECT
+        REPLACE(field_path, CONCAT('${v.recordColumnOrigen}', '.'), '') AS campo,
+        data_type AS tipo
+    FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS\`
+    WHERE table_name = '${v.tablaOrigen}'
+      AND column_name = '${v.recordColumnOrigen}'
+      AND field_path  != '${v.recordColumnOrigen}'
+      AND data_type NOT IN ('ARRAY','STRUCT','RECORD','GEOGRAPHY','JSON')
+) o
+FULL OUTER JOIN (
+    SELECT
+        REPLACE(field_path, CONCAT('${v.recordColumnDestino}', '.'), '') AS campo,
+        data_type AS tipo
+    FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS\`
+    WHERE table_name = '${v.tablaDestino}'
+      AND column_name = '${v.recordColumnDestino}'
+      AND field_path  != '${v.recordColumnDestino}'
+      AND data_type NOT IN ('ARRAY','STRUCT','RECORD','GEOGRAPHY','JSON')
+) d ON UPPER(o.campo) = UPPER(d.campo)
+WHERE o.tipo != d.tipo OR o.campo IS NULL OR d.campo IS NULL
+ORDER BY seccion, campo;`
+                });
+            } else {
+                // SIMPLE: comparar tipos de columnas de la tabla
+                queries.push({
+                    code: 'R03',
+                    title: 'Tipos de Datos',
+                    description: 'Valida que los tipos de datos sean correctos',
+                    isAuxiliary: false,
+                    query: `-- R03: Tipos de Datos
 -- Resultado esperado: 0 registros (todos los tipos coinciden)
 
 SELECT 
@@ -4048,7 +4187,8 @@ FULL OUTER JOIN (
     WHERE table_name = '${v.tablaDestino}'
 ) d ON UPPER(o.column_name) = UPPER(d.column_name)
 WHERE o.data_type != d.data_type OR o.column_name IS NULL OR d.column_name IS NULL;`
-            });
+                });
+            }
 
             // R04: Conteo de registros con diferencia y estado
             queries.push({
