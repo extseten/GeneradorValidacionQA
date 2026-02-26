@@ -1,15 +1,17 @@
-# Generador de Queries - Documentación Técnica Completa
+# Generador de Queries — Documentación Técnica Completa
 
 ## Aplicación Web para Validación de Calidad de Datos
 
 | Atributo | Valor |
 |----------|-------|
-| **Versión** | 3.0.0 |
-| **Archivo** | `docs/web/generador_query_qa_v3.html` |
-| **Fecha** | 2026-02-20 |
+| **Versión** | 5.0.0 |
+| **Archivo** | `docs/web/generador_query_qa_v5.html` |
+| **Fecha** | 2026-02-26 |
 | **Autor** | Sergio Tena |
 | **Tecnología** | HTML5 / CSS3 / JavaScript (Vanilla) |
 | **Dependencia** | SheetJS (xlsx.js) para exportación Excel |
+
+> **Nota de versión anterior:** La documentación de las versiones 1.x–3.x se encuentra en `DOCUMENTACION_GENERADOR_WEB.md`. Este documento cubre las versiones 4.x y 5.x.
 
 ---
 
@@ -17,18 +19,20 @@
 
 ### 1.1 ¿Qué es el Generador de Queries?
 
-El **Generador de Queries v3** es una aplicación web que automatiza la creación de queries SQL para validación de datos en **Google BigQuery**. Permite generar queries de forma rápida y estandarizada sin necesidad de escribir SQL manualmente, con soporte para tablas encriptadas (campos `BYTES`).
+El **Generador de Queries** es una aplicación web que automatiza la creación de queries SQL para validación de datos en **Google BigQuery**. Permite generar queries de forma rápida y estandarizada sin necesidad de escribir SQL manualmente, con soporte para tablas encriptadas (campos `BYTES`), tablas RECORD/ARRAY y **queries especializados para desencriptado y análisis de casuísticas**.
 
 ### 1.2 Propósito
 
 Facilitar el proceso de validación de calidad de datos mediante:
-- ✅ Generación automática de queries SQL
+
+- ✅ Generación automática de queries SQL estándar (UT/QA) y especializados (ADEX)
 - ✅ Estandarización del proceso de validación
-- ✅ Reducción de errores humanos
+- ✅ Reducción de errores humanos en SQL dinámico
 - ✅ Exportación de evidencias a Excel
-- ✅ Soporte para múltiples tipos de tablas y tipos de información
+- ✅ Soporte para tablas simples, RECORD/ARRAY y diferente estructura
 - ✅ Validación de tablas encriptadas (campos BYTES vs STRING)
-- ✅ Análisis automático de pipelines ETL/SQL
+- ✅ Queries de desencriptado con `SELECT sql` para integración con el Desencriptador Interseguro
+- ✅ Reporte de casuísticas de discrepancias entre origen y destino
 
 ### 1.3 Beneficios Clave
 
@@ -41,16 +45,18 @@ Facilitar el proceso de validación de calidad de datos mediante:
 | **💻 Sin Instalación** | Funciona en cualquier navegador |
 | **🔒 Seguro** | No envía datos a servidores externos |
 | **🔐 Encriptado** | Validación estadística de campos BYTES |
+| **🔍 Casuísticas** | Reporte detallado de diferencias por tipo de discrepancia |
+| **🔓 Integración** | Botón de acceso directo al Desencriptador Interseguro |
 
 ---
 
-## 2. Arquitectura de Comboboxes (v3)
+## 2. Arquitectura de Controles (v5)
 
-La versión 3 introduce **tres comboboxes independientes** que controlan la generación de queries:
+La versión 5 mantiene los **tres comboboxes** de control y añade un **checkbox de Queries adicionales**:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                     ESTRUCTURA DE COMBOBOXES - v3                            │
+│                     ESTRUCTURA DE CONTROLES - v5                             │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │  COMBO 1: Tipo de Validación                                                │
@@ -73,196 +79,392 @@ La versión 3 introduce **tres comboboxes independientes** que controlan la gene
 │  │ • Encriptado (BYTES)        [encrypted]      │                           │
 │  └──────────────────────────────────────────────┘                           │
 │                                                                             │
+│  [ ⚡ Generar Queries ]  [ 🔍 Queries adicionales ☐ ]  ← NUEVO v5           │
+│                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 2.1 Comportamiento según combinación
+### 2.1 Checkbox "Queries adicionales" *(nuevo en v5)*
 
-| Combo 1 | Combo 2 | Combo 3 | Reglas generadas |
-|---------|---------|---------|-----------------|
-| ut | simple | clear | UT-01, UT-02, UT-03, UT-04 |
-| ut | record | clear | UT-01, UT-02, UT-03, UT-04 (con UNNEST) |
-| ut | different | clear | UT-01-DIFF, UT-03-DIFF, UT-04-DIFF (mapeo manual) |
-| ut | simple/record/different | encrypted | UT-E01, UT-E02, UT-E03, UT-E04 |
-| qa | simple | clear | R01–R08 |
-| qa | record | clear | R01–R08 (con UNNEST) |
-| qa | different | clear | R01-DIFF, R07-DIFF, R08-DIFF (mapeo manual) |
-| qa | simple/record/different | encrypted | RE01, RE02, RE03, RE04 |
-| pipeline | — | — | PL-01, PL-02, PL-03 (+ botón especial) |
+- Se ubica **a la derecha** del botón "Generar Queries".
+- Cuando está **desmarcado**: genera las reglas estándar (UT/QA) según la combinación de combos.
+- Cuando está **marcado**: omite las reglas estándar y genera **solo 2 queries especializados** (ADEX-01 y ADEX-02).
+- Compatible con tabla **Simple** y tabla **RECORD**.
+- Al generar con este modo activo, aparece automáticamente un **banner de acceso al Desencriptador Interseguro**.
 
----
+### 2.2 Comportamiento según combinación
 
-## 3. Modos de Validación
-
-### 3.1 Modo 1: Pruebas Unitarias (Data Engineer)
-
-**Objetivo:** Validar integridad básica de datos después de cada carga ETL.
-
-#### 3.1.1 En Claro
-
-| Regla | Nombre | Tipo | Descripción |
-|-------|--------|------|-------------|
-| **UT-01** | Conteo de Registros | Directo | COUNT(*) origen = COUNT(*) destino + `diferencia` + `estado` PASS/FAIL |
-| **UT-02** | Valores Únicos | 2 pasos | Sin duplicados en TODOS los campos (filtro `data_type != 'BYTES'` si aplica) |
-| **UT-03** | Integridad Bidireccional | 2 pasos | FULL OUTER JOIN origen ↔ destino |
-| **UT-04** | Resumen de Diferencias | 2 pasos | FULL OUTER JOIN mostrando solo diferencias campo a campo |
-
-#### 3.1.2 Encriptado (BYTES)
-
-| Regla | Nombre | Tipo | Descripción |
-|-------|--------|------|-------------|
-| **UT-E01** | Conteo de Registros | Directo | COUNT(*) sin alterar por encriptación |
-| **UT-E02** | Top 5 Valores Frecuentes | Meta-Query | Compara distribución STRING vs `TO_HEX(BYTES)` |
-| **UT-E03** | Valores Nulos | Meta-Query | Compara nulos/vacíos STRING (`''`) vs BYTES (`b""`) |
-| **UT-E04** | Top 5 Longitud de Campos | Meta-Query | Compara `OCTET_LENGTH` origen vs destino |
-
-### 3.2 Modo 2: Validación QA (Analista QA)
-
-**Objetivo:** Validar reglas de calidad entre ambientes ORIGEN y DESTINO.
-
-#### 3.2.1 En Claro
-
-| Regla | Nombre | Tipo | Descripción |
-|-------|--------|------|-------------|
-| **R01** | Existencia de Tabla | Directo | Tabla existe con `fecha_creacion` y `fecha_actualizacion` |
-| **R02** | Cabeceras Iguales | Directo | Columnas origen = columnas destino |
-| **R03** | Tipos de Datos | Directo | Tipos de datos correctos |
-| **R04** | Conteo de Registros | Directo | Registros origen = destino + `diferencia` + `estado` PASS/FAIL |
-| **R05** | Campos No Nulos | EXECUTE IMMEDIATE | Sin valores nulos en campos (single-step dinámico) |
-| **R06** | Sin Duplicados | 2 pasos | Sin registros duplicados (incluye campos RECORD si aplica) |
-| **R07** | Valores Coinciden | 2 pasos | Valores iguales por PK (con LIMIT 1000 y nota para quitar límite) |
-| **R08** | Resumen de Diferencias | 2 pasos | FULL OUTER JOIN mostrando solo diferencias campo a campo |
-
-#### 3.2.2 Encriptado (BYTES)
-
-| Regla | Nombre | Tipo | Descripción |
-|-------|--------|------|-------------|
-| **RE01** | Conteo de Registros | Directo | COUNT(*) sin alterar por encriptación |
-| **RE02** | Top 5 Valores Frecuentes | Meta-Query | Compara distribución STRING vs `TO_HEX(BYTES)` |
-| **RE03** | Valores Nulos | Meta-Query | Compara nulos/vacíos STRING vs BYTES (`b""`) |
-| **RE04** | Top 5 Longitud de Campos | Meta-Query | Compara `OCTET_LENGTH` origen vs destino |
-
-### 3.3 Modo 3: Validación Entre Capas / Análisis de Pipeline
-
-**Objetivo:** Validar integridad de datos entre capas del Data Lake (Raw→Master, Master→Business) analizando el código de SPs.
-
-| Regla | Nombre | Tipo | Descripción |
-|-------|--------|------|-------------|
-| **PL-01** | Resumen del Pipeline | Directo | Conteo por cada paso del SP con filtros y JOINs |
-| **PL-02** | Registros Perdidos | Directo | Tablas intermedias vs MASTER/BUSINESS |
-| **PL-03** | Calidad MASTER/BUSINESS | Directo | Duplicados, nulos, huérfanos y conteo vs orígenes |
+| Combo 1 | Combo 2 | Combo 3 | Queries adicionales | Reglas generadas |
+|---------|---------|---------|---------------------|-----------------|
+| ut | simple | clear | ☐ | UT-01, UT-02, UT-03, UT-04 |
+| ut | record | clear | ☐ | UT-01, UT-02, UT-03, UT-04 (con UNNEST) |
+| ut | different | clear | ☐ | UT-01-DIFF, UT-03-DIFF, UT-04-DIFF |
+| ut/qa | simple/record | clear/encrypted | ☑ | **ADEX-01** + **ADEX-02** |
+| qa | simple | clear | ☐ | R01–R08 |
+| qa | record | clear | ☐ | R01–R08 (con UNNEST) |
+| pipeline | — | — | — | PL-01, PL-02, PL-03 |
 
 ---
 
-## 4. Tipos de Tabla Soportados
+## 3. Correcciones Técnicas Aplicadas (v4 → v5)
 
-### 4.1 Tabla Simple
+### 3.1 R07 y UT-03 — Eliminación de `FORMAT('''...%s...''', bloque)`
+
+**Problema:** R07 y UT-03 usaban `EXECUTE IMMEDIATE FORMAT('''...%s...''', bloque)` para sustituir el bloque de columnas. Las comillas simples de `'IGUAL'` y `'DIFERENTE'` dentro de `FORMAT('''...''')` causaban `Syntax error: Unclosed string literal`.
+
+**Solución aplicada:** Se adoptó el mismo patrón de R08/UT-04:
+
+| Parte | Antes (v4) | Ahora (v5) |
+|-------|-----------|-----------|
+| Construcción del `bloque` | `STRING_AGG(FORMAT('''...THEN 'IGUAL'...''', col))` | `STRING_AGG(CONCAT("...", col, "..."))` |
+| EXECUTE IMMEDIATE | `EXECUTE IMMEDIATE FORMAT('''...%s...''', bloque)` | `EXECUTE IMMEDIATE '''...''' \|\| bloque \|\| '''...'''` |
+
+**Por qué funciona `CONCAT("...")`:**  
+Los strings con dobles comillas `"..."` en BigQuery permiten contener comillas simples internas como caracteres normales. El valor de `bloque` queda como `A.col1 ... THEN 'IGUAL' ...`, que es SQL válido cuando se inserta via `|| bloque ||`.
+
+Aplica a los 4 casos:
+- UT-03 Simple (EXECUTE IMMEDIATE)
+- UT-03 RECORD (EXECUTE IMMEDIATE)
+- R07 Simple (EXECUTE IMMEDIATE)
+- R07 RECORD (EXECUTE IMMEDIATE)
+
+### 3.2 Checkbox BYTES visible para "Diferente estructura"
+
+**Problema:** El checkbox "Tiene campos BYTES" no se mostraba cuando `currentTableType === 'different'`.
+
+**Solución:** Se actualizó `updateBytesCheckboxVisibility()` para incluir la condición `currentTableType === 'different'`.
+
+---
+
+## 4. Queries Adicionales — ADEX *(nuevo en v5)*
+
+Activados con el checkbox "🔍 Queries adicionales". Generan **exactamente 2 cuadros** de query, omitiendo todas las reglas UT/QA estándar.
+
+### 4.1 ADEX-01: Query para desencriptar tabla
+
+**Objetivo:** Generar un `SELECT` dinámico desde los metadatos de la tabla destino, aplicando el prefijo `v_tipo_` a los campos BYTES para que el Desencriptador Interseguro los procese automáticamente.
+
+#### 4.1.1 ADEX-01 — Tabla Simple
+
+**Estructura del query generado:**
+
+```sql
+DECLARE dataset_id      STRING DEFAULT 'mi_dataset';
+DECLARE table_id        STRING DEFAULT 'mi_tabla';
+-- ⚠️ Condición de filtro (sin WHERE). Deja TRUE para traer todo.
+DECLARE where_condition STRING DEFAULT """PERIODO = '2025-12-01'""";
+-- ⚠️ Códigos: C_DOCUMENT_NUMBER, C_DOCUMENT_TYPE, C_NAME, C_EMAIL, C_ADDRESS, C_CELLPHONE
+DECLARE codigo_tipo     STRING DEFAULT 'C_NAME';
+
+DECLARE sql STRING;
+
+SET sql = (
+    SELECT CONCAT(
+        'SELECT\n',
+        STRING_AGG(
+            CASE
+                WHEN data_type = 'BYTES'
+                THEN FORMAT("    r.%s,\n    '%s' AS v_tipo_%s",
+                            column_name, codigo_tipo, column_name)
+                ELSE CONCAT('    r.', column_name)
+            END,
+            ',\n' ORDER BY ordinal_position
+        ),
+        '\nFROM `proyecto.dataset.tabla` r\nWHERE ',
+        where_condition,
+        '\nLIMIT 100;'
+    )
+    FROM `proyecto.dataset.INFORMATION_SCHEMA.COLUMNS`
+    WHERE table_name = table_id
+);
+
+-- Muestra el SELECT generado (copia y pega en BigQuery para ejecutarlo)
+SELECT sql;
+```
+
+**Campos especiales generados:**
+- `r.CAMPO` — campo sin prefijo (se incluye tal cual)
+- `r.CAMPO_BYTES, 'C_NAME' AS v_tipo_CAMPO_BYTES` — campo BYTES con código KMS para desencriptado
+
+> **Nota:** Se usa `"""..."""` (triple doble comilla) para el `DEFAULT` de `where_condition`, permitiendo que el filtro contenga comillas simples sin errores de parseo.
+
+#### 4.1.2 ADEX-01 — Tabla RECORD
+
+Similar al Simple, pero consulta `INFORMATION_SCHEMA.COLUMN_FIELD_PATHS` para obtener los sub-campos del RECORD y genera:
+
+```sql
+DECLARE record_col      STRING DEFAULT 'DATOS_VEHICULO';
+DECLARE where_condition STRING DEFAULT """PERIODO = '2025-12-01'""";
+DECLARE codigo_tipo     STRING DEFAULT 'C_NAME';
+
+SET sql = (
+    SELECT FORMAT(
+        'SELECT\n%s\nFROM `proyecto.dataset.tabla` t,\nUNNEST(t.%s) AS r\nWHERE %s\nLIMIT 100;',
+        STRING_AGG(
+            CASE
+                WHEN data_type = 'BYTES'
+                THEN FORMAT("    r.%s,\n    '%s' AS v_tipo_%s",
+                            REPLACE(field_path, CONCAT(record_col, '.'), ''),
+                            codigo_tipo,
+                            REPLACE(REPLACE(field_path, ...), '.', '_'))
+                ELSE CONCAT('    r.', REPLACE(field_path, CONCAT(record_col, '.'), ''))
+            END,
+            ',\n' ORDER BY field_path
+        ),
+        record_col,
+        where_condition
+    )
+    FROM `proyecto.dataset.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS`
+    WHERE table_name = table_id
+      AND column_name = record_col
+      AND field_path != record_col
+);
+
+SELECT sql;
+```
+
+### 4.2 ADEX-02: Reporte de casuísticas
+
+**Objetivo:** Comparar solo las columnas comunes entre origen y destino (`COLUMNAS_COMUNES` = INNER JOIN de metadatos), generando un reporte agrupado por tipo de discrepancia.
+
+**Tipos de casuística detectados:**
+
+| Casuística | Descripción |
+|------------|-------------|
+| `Solo_en_destino` / `Solo_en_destino_Business` | El campo tiene valor en destino pero NULL/vacío en origen |
+| `Solo_en_origen` / `Solo_en_origen_Produccion` | El campo tiene valor en origen pero NULL/vacío en destino |
+| `Diferencia_mayusculas_minusculas` | Valores iguales al normalizar con `LOWER()` pero distintos sin normalizar |
+| `Diferencia_espacios_trim` | Valores iguales al aplicar `TRIM()` pero distintos sin aplicarlo |
+| `Valor_distinto_otro` | Diferencia que no cae en ninguna de las categorías anteriores |
+
+#### 4.2.1 ADEX-02 — Tabla Simple
+
+**Metadatos usados:**
+- `METADATOS_ORIGEN`: `INFORMATION_SCHEMA.COLUMNS` de la tabla origen
+- `METADATOS_DESTINO`: `INFORMATION_SCHEMA.COLUMNS` de la tabla destino
+- `COLUMNAS_COMUNES`: INNER JOIN de ambos, excluyendo PKs y tipos complejos
+
+**Estructura de cada bloque de comparación (por campo):**
+```sql
+SELECT
+    'mi_tabla' AS tabla,
+    'CAMPO'    AS campo,
+    (CASE
+        WHEN (O.CAMPO IS NULL OR TRIM(CAST(O.CAMPO AS STRING)) = '')
+             AND (D.CAMPO IS NOT NULL AND TRIM(CAST(D.CAMPO AS STRING)) <> '')
+             THEN 'Solo_en_destino'
+        WHEN (O.CAMPO IS NOT NULL AND TRIM(CAST(O.CAMPO AS STRING)) <> '')
+             AND (D.CAMPO IS NULL OR TRIM(CAST(D.CAMPO AS STRING)) = '')
+             THEN 'Solo_en_origen'
+        WHEN LOWER(TRIM(CAST(O.CAMPO AS STRING))) = LOWER(TRIM(CAST(D.CAMPO AS STRING)))
+             AND TRIM(CAST(O.CAMPO AS STRING)) <> TRIM(CAST(D.CAMPO AS STRING))
+             THEN 'Diferencia_mayusculas_minusculas'
+        WHEN TRIM(CAST(O.CAMPO AS STRING)) = TRIM(CAST(D.CAMPO AS STRING))
+             AND CAST(O.CAMPO AS STRING) <> CAST(D.CAMPO AS STRING)
+             THEN 'Diferencia_espacios_trim'
+        ELSE 'Valor_distinto_otro'
+    END) AS casuistica,
+    D.pk1, D.pk2
+FROM `destino` D
+INNER JOIN `origen` O ON D.pk1 = O.pk1 AND D.pk2 = O.pk2
+WHERE COALESCE(TRIM(CAST(O.CAMPO AS STRING)), '') <> COALESCE(TRIM(CAST(D.CAMPO AS STRING)), '')
+```
+
+**EXECUTE IMMEDIATE:**
+```sql
+EXECUTE IMMEDIATE '''
+WITH diferencias AS (
+''' || bloque || '''
+)
+SELECT
+    tabla, campo, casuistica,
+    COUNT(*) AS cantidad_registros,
+    ARRAY_AGG(STRUCT(pk1, pk2) ORDER BY pk1, pk2 LIMIT 5) AS muestra_claves
+FROM diferencias
+GROUP BY 1, 2, 3
+ORDER BY 1, 2, 4 DESC;
+''';
+```
+
+**Manejo de columnas sin coincidencias:**
+```sql
+IF bloque IS NULL THEN
+    SELECT 'Sin columnas comunes entre las dos tablas. Verifica los nombres y filtros.' AS error;
+ELSE
+    EXECUTE IMMEDIATE '''...''' || bloque || '''...''';
+END IF;
+```
+
+#### 4.2.2 ADEX-02 — Tabla RECORD *(adaptado en v5)*
+
+**Diferencia clave con Simple:** AMBAS tablas tienen columna RECORD/ARRAY. Se usan CTEs `origen_cte` y `destino_cte` con UNNEST, y los metadatos provienen de `COLUMN_FIELD_PATHS` para ambas.
+
+**Metadatos usados:**
+- `METADATOS_ORIGEN`: `INFORMATION_SCHEMA.COLUMN_FIELD_PATHS` filtrando por `column_name = recColOrigen`
+- `METADATOS_DESTINO`: `INFORMATION_SCHEMA.COLUMN_FIELD_PATHS` filtrando por `column_name = recColDestino`
+- Ambos aplican `AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD', 'GEOGRAPHY', 'JSON')`
+- `COLUMNAS_COMUNES`: INNER JOIN de ambos, excluyendo PKs
+
+**Estructura de cada bloque de comparación (por campo):**
+```sql
+SELECT
+    'RECORD_COL' AS array_nombre,
+    'CAMPO'      AS campo,
+    (CASE ... END) AS casuistica,
+    DA.pk1, DA.pk2
+FROM destino_cte DA
+INNER JOIN origen_cte O ON DA.pk1 = O.pk1 AND DA.pk2 = O.pk2
+WHERE COALESCE(TRIM(CAST(O.CAMPO AS STRING)), '') <> COALESCE(TRIM(CAST(DA.CAMPO AS STRING)), '')
+```
+
+**EXECUTE IMMEDIATE:**
+```sql
+EXECUTE IMMEDIATE '''
+WITH origen_cte AS (
+    SELECT t.pk1, t.pk2, r.*
+    FROM `origen` t, UNNEST(t.RECORD_ORIGEN) AS r
+    WHERE filtroOrigen
+),
+destino_cte AS (
+    SELECT t.pk1, t.pk2, d.*
+    FROM `destino` t, UNNEST(t.RECORD_DESTINO) AS d
+    WHERE filtroDestino
+),
+diferencias AS (
+''' || bloque || '''
+)
+SELECT
+    array_nombre, campo, casuistica,
+    COUNT(*) AS cantidad_registros,
+    ARRAY_AGG(STRUCT(pk1, pk2) ORDER BY pk1, pk2 LIMIT 5) AS muestra_claves
+FROM diferencias
+GROUP BY 1, 2, 3
+ORDER BY 1, 2, 4 DESC;
+''';
+```
+
+---
+
+## 5. Banner de Acceso al Desencriptador *(nuevo en v5)*
+
+Cuando el checkbox "🔍 Queries adicionales" está marcado y se presiona "Generar Queries", aparece automáticamente un **banner** en la zona de resultados con acceso directo al Desencriptador de Interseguro:
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│  🔓  Herramienta de Desencriptado / Encriptado                       │
+│      Para ejecutar las queries generadas, utiliza el servicio de     │
+│      desencriptado de Interseguro.                 [🔑 Abrir]        │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+- **URL:** https://demo-decryptor-726731649140.us-central1.run.app/
+- Se abre en una **nueva pestaña** (`target="_blank"`).
+- Solo visible cuando "Queries adicionales" está activo.
+
+### 5.1 Funcionalidades del Desencriptador Interseguro
+
+El desencriptador soporta:
+
+| Pestaña | Descripción |
+|---------|-------------|
+| 🔓 Desencriptar | Desencripta un dato individual usando tipo de campo |
+| 🔒 Encriptar | Encripta un dato individual usando tipo de campo |
+| 🗄️ Desencriptar SQL | Ejecuta un SELECT en BigQuery y guarda los datos desencriptados en una tabla destino |
+| 🔐 Encriptar SQL | Ejecuta un SELECT en BigQuery y guarda los datos encriptados en una tabla destino |
+
+**Convención de campos en las queries SQL:**
+
+| Prefijo de alias | Función |
+|-----------------|---------|
+| `v_key_CAMPO` | Campo de clustering (se incluye tal cual) |
+| `'C_CODE' AS v_tipo_CAMPO` | Campo a desencriptar/encriptar con el código KMS indicado |
+| `v_part_CAMPO` | Campo para crear partición DATE en la tabla destino |
+| *(sin prefijo)* | Se incluye tal cual sin transformación |
+
+**Códigos KMS disponibles:**
+- `C_DOCUMENT_NUMBER` — Número de documento
+- `C_DOCUMENT_TYPE` — Tipo de documento
+- `C_NAME` — Nombre y apellidos
+- `C_EMAIL` — Email o correo electrónico
+- `C_ADDRESS` — Dirección
+- `C_CELLPHONE` — Teléfono
+
+---
+
+## 6. Manejo de Comillas en BigQuery Scripting
+
+Un problema frecuente en la generación de SQL dinámico es el anidamiento de comillas. La v5 aplica las siguientes estrategias:
+
+### 6.1 `DECLARE DEFAULT` con comillas simples en el valor
+
+**Problema:** `DECLARE where_condition STRING DEFAULT 'PERIODO = '2025-12-01'';` rompe el parser.
+
+**Solución:** Usar triple doble comilla para el string de `DEFAULT`:
+```sql
+DECLARE where_condition STRING DEFAULT """PERIODO = '2025-12-01'""";
+```
+BigQuery acepta `"""..."""` como string literal. Las comillas simples dentro son caracteres normales. Aplicado en ADEX-01 Simple y RECORD.
+
+### 6.2 `EXECUTE IMMEDIATE` con variable `bloque`
+
+**Problema:** `EXECUTE IMMEDIATE FORMAT('''...%s...''', bloque)` falla cuando `bloque` contiene comillas simples (como `'IGUAL'`).
+
+**Solución:** Concatenación de strings con operador `||`:
+```sql
+EXECUTE IMMEDIATE ''' ... ''' || bloque || ''' ... ''';
+```
+Dentro de `'''...'''`, las comillas simples aisladas son caracteres normales. El `||` concatena en tiempo de ejecución de BigQuery. Aplicado en UT-03, R07, ADEX-02.
+
+### 6.3 `STRING_AGG(CONCAT(...))` en lugar de `STRING_AGG(FORMAT('''...''', ...))`
+
+**Problema:** `FORMAT('''...THEN 'IGUAL'...''', col)` puede generar conflictos de comillas en BigQuery al ser evaluado en un contexto `SET bloque = (...)`.
+
+**Solución:** `CONCAT("...THEN 'IGUAL'...", col, "...")` usando strings con comillas dobles, donde las comillas simples son caracteres normales. Aplicado en UT-03 y R07 EXECUTE IMMEDIATE.
+
+---
+
+## 7. Tipos de Tabla Soportados
+
+### 7.1 Tabla Simple
 
 Para tablas con estructura plana sin campos anidados.
-
-**Ejemplo de estructura:**
-```sql
-CREATE TABLE poliza (
-    numero_poliza STRING,
-    nombre_cliente STRING,
-    fecha_emision DATE,
-    monto_prima NUMERIC
-);
-```
 
 **Características:**
 - Usa `INFORMATION_SCHEMA.COLUMNS` para obtener campos
 - Filtro `AND data_type != 'BYTES'` en modo "En Claro" si el checkbox "tiene campos BYTES" está activo
 - Filtro `AND data_type = 'BYTES'` en modo "Encriptado" si el checkbox está activo
 
-### 4.2 Tabla con RECORD/ARRAY
+### 7.2 Tabla con RECORD/ARRAY
 
 Para tablas con campos anidados (STRUCT/RECORD) en BigQuery.
 
-**Ejemplo de estructura:**
-```sql
-CREATE TABLE poliza_detalle (
-    numero_poliza STRING,
-    datos_poliza STRUCT<
-        nombre_cliente STRING,
-        coberturas ARRAY<STRUCT<codigo STRING, monto NUMERIC>>
-    >
-);
-```
-
 **Características especiales:**
-- Usa `INFORMATION_SCHEMA.COLUMN_FIELD_PATHS` para obtener campos anidados
-- Aplica `UNNEST` para aplanar estructuras
+- Usa `INFORMATION_SCHEMA.COLUMN_FIELD_PATHS` para obtener campos anidados del RECORD
+- Aplica `UNNEST` para aplanar estructuras en CTEs (`origen_cte`, `destino_cte`)
 - Requiere configurar la **columna RECORD** para origen y destino
-- El checkbox **"Tiene campos BYTES"** también está disponible en modo "En Claro" para excluir campos BYTES
+- En ADEX-02, **ambas tablas** (origen y destino) son tratadas como RECORD: se usan dos CTEs con UNNEST
+- El checkbox **"Tiene campos BYTES"** también disponible en modo "En Claro"
 
-### 4.3 Tabla con Diferente Estructura
+### 7.3 Tabla con Diferente Estructura
 
 Para comparar tablas donde las columnas tienen nombres diferentes entre origen y destino.
-
-**Ejemplo:**
-| Origen | Destino |
-|--------|---------|
-| `moneda_id` | `id_moneda` |
-| `plan_nro` | `numero_plan` |
-| `fec_emision` | `fecha_emision` |
 
 **Características especiales:**
 - Requiere configurar PKs de ORIGEN y DESTINO por separado
 - Genera plantillas de mapeo manual con `<<CAMPO_ORIGEN>>` y `<<CAMPO_DESTINO>>`
-- Detección de sinónimos comunes (ej. `numero_` / `nro_`, `id_` / `_id`)
-- UT-01 / R04 incluyen consultas DIFF para mostrar registros solo en cada lado
+- Detección de sinónimos comunes
+- El checkbox "Tiene campos BYTES" es visible también para este tipo (corregido en v4)
 
 ---
 
-## 5. Tipo de Información: Encriptado (BYTES)
+## 8. Interfaz de Usuario
 
-### 5.1 ¿Cuándo usarlo?
-
-Cuando la tabla de **destino** tiene campos encriptados como tipo `BYTES` y la tabla de **origen** tiene los mismos campos como `STRING`.
-
-### 5.2 Checkbox "Tiene campos BYTES"
-
-Disponible en los campos **ORIGEN** y **DESTINO** para todos los tipos de tabla:
-
-| Modo Información | Checkbox activo | Efecto en INFORMATION_SCHEMA |
-|-----------------|----------------|------------------------------|
-| En Claro | Sí | `AND data_type != 'BYTES'` (excluye BYTES) |
-| Encriptado | Sí | `AND data_type = 'BYTES'` (solo BYTES) |
-
-### 5.3 Meta-Queries (Reglas E02, E03, E04 / RE02, RE03, RE04)
-
-Las reglas de tipo "Meta-Query" funcionan en **dos pasos**:
-
-```
-PASO 1: Ejecutar la meta-query en BigQuery
-        → Devuelve el campo `sql_generado` con el SQL dinámico
-
-PASO 2: Copiar el contenido de `sql_generado`
-        → Pegar y ejecutar directamente en BigQuery
-```
-
-### 5.4 Uso de DECLARE para WHERE
-
-Para evitar errores de "Unclosed string literal" en BigQuery, los filtros `WHERE` se normalizan en una sola línea y se almacenan en variables `DECLARE`:
-
-```sql
-DECLARE tabla_origen STRING DEFAULT 'proyecto.dataset.tabla';
-DECLARE tabla_destino STRING DEFAULT 'proyecto.dataset.tabla';
-DECLARE wh_origen STRING DEFAULT "WHERE campo = 'valor'";
-DECLARE wh_destino STRING DEFAULT "WHERE campo = 'valor'";
-```
-
----
-
-## 6. Interfaz de Usuario
-
-### 6.1 Estructura de la Pantalla
+### 8.1 Estructura de la Pantalla
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  🔷 GENERADOR DE QUERIES - VALIDACIÓN DE CALIDAD DE DATOS v3                │
-│     Sistema para generación automática de queries SQL para BigQuery         │
+│  🔷 GENERADOR DE QUERIES - VALIDACIÓN DE CALIDAD DE DATOS                   │
+│     (sin número de versión en el título desde v5)                           │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │  SELECCIÓN DE MODO                                                          │
@@ -288,57 +490,52 @@ DECLARE wh_destino STRING DEFAULT "WHERE campo = 'valor'";
 │  │  [numero_poliza, id_producto]                                     │      │
 │  └──────────────────────────────────────────────────────────────────┘      │
 │                                                                             │
-│  [ ⚡ Generar Queries ]    [ 📊 Exportar a Excel ]                           │
-│    (oculto en Pipeline)                                                     │
+│  [ ⚡ Generar Queries ]  [ 🔍 Queries adicionales ☐ ]  [ 📊 Exportar Excel ]│
 │                                                                             │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
+│  [Solo cuando Queries adicionales está activo:]                             │
+│  ┌──────────────────────────────────────────────────────────────────┐      │
+│  │ 🔓  Herramienta de Desencriptado / Encriptado            [🔑 Ir] │      │
+│  └──────────────────────────────────────────────────────────────────┘      │
+│                                                                             │
 │  📋 QUERIES GENERADOS                                                       │
 │  ┌──────────────────────────────────────────────────────────────────┐      │
-│  │ UT-01: Conteo de Registros                              [Copiar] │      │
-│  │ ┌────────────────────────────────────────────────────────────┐   │      │
-│  │ │ SELECT cnt_origen, cnt_destino, diferencia, estado ...     │   │      │
-│  │ └────────────────────────────────────────────────────────────┘   │      │
+│  │ ADEX-01: Query para desencriptar tabla             [Copiar]      │      │
+│  │ ADEX-02: Reporte de casuísticas                    [Copiar]      │      │
 │  └──────────────────────────────────────────────────────────────────┘      │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 6.2 Campos de Entrada
+### 8.2 Campos de Entrada
 
 | Campo | Descripción | Obligatorio | Notas |
 |-------|-------------|-------------|-------|
 | **Proyecto** | ID del proyecto GCP | Sí | Para origen y destino |
 | **Dataset** | Nombre del dataset | Sí | Para origen y destino |
 | **Tabla** | Nombre de la tabla | Sí | Para origen y destino |
-| **Filtro** | Condición WHERE opcional | No | Se normaliza a una sola línea en DECLARE |
+| **Filtro** | Condición WHERE opcional | No | Soporta comillas simples en el valor (via `"""..."""`) |
 | **Join** | Tablas adicionales para JOIN | No | Para consultas con tablas relacionadas |
 | **Primary Keys** | Claves primarias | Según tipo | No requerido en modo Encriptado |
 | **Columna RECORD** | Nombre del campo RECORD | Solo Tabla RECORD | Para origen y destino |
 | **Tiene campos BYTES** | Checkbox filtro | No | Activa filtro `data_type` en INFORMATION_SCHEMA |
-
-### 6.3 Estilo Visual
-
-La aplicación sigue un estilo corporativo con:
-- **🔵 Azul oscuro** (`#003366`): Header y títulos de sección
-- **🔵 Azul secundario** (`#0066CC`): Bordes y selects
-- **⚪ Blanco**: Fondo limpio y claro
-- **🟠 Naranja** (`#FF6600`): Botones de acción principal y badges
-- **🟣 Púrpura** (`#7B1FA2`): Badge de modo Encriptado
+| **Queries adicionales** | Checkbox modo ADEX | No | Activa generación de ADEX-01 y ADEX-02 |
 
 ---
 
-## 7. Flujo de Uso
+## 9. Flujo de Uso
 
-### 7.1 Pruebas Unitarias / Validación QA — En Claro
+### 9.1 Queries Estándar (UT/QA)
 
 ```
 PASO 1: CONFIGURACIÓN
 ═════════════════════
-1.1 Abrir generador_query_qa_v3.html en navegador
+1.1 Abrir generador_query_qa_v5.html en navegador
 1.2 Seleccionar Tipo de Validación: "Pruebas Unitarias" o "Validación QA"
 1.3 Seleccionar Tipo de tabla: "Simple", "RECORD" o "Diferente Estructura"
-1.4 Seleccionar Tipo de información: "En Claro"
+1.4 Seleccionar Tipo de información: "En Claro" o "Encriptado (BYTES)"
+1.5 Verificar que "Queries adicionales" esté DESMARCADO
 
 PASO 2: INGRESO DE DATOS
 ════════════════════════
@@ -350,334 +547,118 @@ PASO 2: INGRESO DE DATOS
 PASO 3: GENERACIÓN
 ═══════════════════
 3.1 Click en "⚡ Generar Queries"
-3.2 Se generan automáticamente los queries según la combinación seleccionada
+3.2 Se generan los queries UT-01 a UT-04 / R01 a R08 según combinación
 
-PASO 4: EJECUCIÓN (queries de 2 pasos)
-═══════════════════════════════════════
-4.1 Copiar Query AUXILIAR (PASO 1) → Ejecutar en BigQuery
-4.2 Copiar resultado (columna `bloque` o `columnas_group`)
-4.3 Pegar en Query FINAL donde dice <<PEGAR AQUÍ>>
-4.4 Ejecutar Query FINAL
-
-PASO 5: EXPORTACIÓN
+PASO 4: EXPORTACIÓN
 ═════════════════════
-5.1 Click en "📊 Exportar a Excel"
-5.2 Se descarga archivo con Instrucciones, Inputs y Resultados
+4.1 Click en "📊 Exportar a Excel"
 ```
 
-### 7.2 Pruebas Unitarias / Validación QA — Encriptado (BYTES)
+### 9.2 Queries Adicionales (ADEX — Desencriptado y Casuísticas)
 
 ```
 PASO 1: CONFIGURACIÓN
 ═════════════════════
-1.1 Seleccionar Tipo de información: "Encriptado (BYTES)"
-1.2 (Si es RECORD) Ingresar columna RECORD para origen y destino
+1.1 Seleccionar Tipo de tabla: "Simple" o "Tabla con RECORD"
+1.2 MARCAR el checkbox "🔍 Queries adicionales"
 
 PASO 2: INGRESO DE DATOS
 ════════════════════════
-2.1 Completar campos de ORIGEN y DESTINO (sin PKs, no requeridas)
-2.2 Activar checkbox "Tiene campos BYTES" para filtrar INFORMATION_SCHEMA
-2.3 Filtros WHERE se normalizarán a una sola línea automáticamente
+2.1 Completar campos de ORIGEN y DESTINO
+2.2 Ingresar PKs separadas por coma
+2.3 (Si es RECORD) Ingresar columna RECORD para origen y destino
+2.4 (Opcional) Ingresar filtro WHERE — soporta comillas simples (ej. PERIODO = '2025-12-01')
 
 PASO 3: GENERACIÓN
 ═══════════════════
 3.1 Click en "⚡ Generar Queries"
-3.2 Se generan: UT-E01/RE01 (conteo directo) + UT-E02 a E04 / RE02 a RE04 (meta-queries)
+3.2 Aparecen 2 cuadros: ADEX-01 y ADEX-02
+3.3 Aparece banner de acceso al Desencriptador Interseguro
 
-PASO 4: META-QUERIES (2 pasos)
-══════════════════════════════
-4.1 Ejecutar la meta-query → obtener `sql_generado`
-4.2 Copiar el contenido de `sql_generado`
-4.3 Pegar y ejecutar directamente en BigQuery como nuevo query
-```
+PASO 4: USAR ADEX-01 (Desencriptar tabla)
+═══════════════════════════════════════════
+4.1 Copiar y ejecutar en BigQuery → obtener el valor de la columna `sql`
+4.2 Copiar ese SQL generado
+4.3 Ir al Desencriptador: https://demo-decryptor-726731649140.us-central1.run.app/
+    → Pestaña "🗄️ Desencriptar SQL"
+4.4 Pegar el SQL en el campo "Query SQL"
+4.5 Indicar la tabla destino en BigQuery
+4.6 Ejecutar y guardar
 
-### 7.3 Análisis de Pipeline (SP)
-
-```
-PASO 1: SELECCIÓN
-══════════════════
-1.1 Seleccionar "Análisis Pipeline (SP)" en Tipo de Validación
-    → Los combos Tipo de tabla y Tipo de información se ocultan
-    → El botón "⚡ Generar Queries" se oculta (no aplica en este modo)
-
-PASO 2: INGRESO DEL SP
-═══════════════════════
-2.1 Pegar código SQL del SP principal en el área de texto
-2.2 (Opcional) Click en "+ Agregar SP Predecesor" para analizar pipelines múltiples
-
-PASO 3: DETECCIÓN AUTOMÁTICA
-══════════════════════════════
-3.1 Click en "🔍 Analizar Pipeline"
-    El sistema detecta automáticamente:
-    📥 Tablas RAW   (datasets con prefijo raw_*)
-    ⚙️  Tablas TEMP  (dataset temp)
-    📊 Tablas MASTER/BUSINESS
-    🔑 PKs desde condiciones ON de los JOINs
-    📋 Filtros WHERE por tabla
-    🔗 Tablas de config_ (configuración)
-
-PASO 4: VERIFICACIÓN
-══════════════════════
-4.1 Revisar tablas detectadas en el diagrama visual
-4.2 (Opcional) Ingresar PKs manualmente si la detección no es correcta
-
-PASO 5: GENERACIÓN
-═══════════════════
-5.1 Click en "🔧 Generar Queries de Validación Pipeline"
-5.2 Se generan: PL-01, PL-02, PL-03
-
-PASO 6: EXPORTACIÓN
-═════════════════════
-6.1 Click en "📊 Exportar a Excel"
-6.2 Se descarga archivo con evidencia de los 3 queries PL
+PASO 5: USAR ADEX-02 (Reporte de casuísticas)
+═══════════════════════════════════════════════
+5.1 Copiar y ejecutar directamente en BigQuery
+5.2 Revisar el reporte agrupado por campo y tipo de casuística
+5.3 La columna `muestra_claves` muestra hasta 5 ejemplos de PKs afectadas
 ```
 
 ---
 
-## 8. Detalle de Queries Generados
+## 10. Detalle de Queries Generados
 
-### 8.1 Queries de Pruebas Unitarias — En Claro
+### 10.1 Queries UT — En Claro (sin cambios respecto a v3)
 
-#### UT-01: Conteo de Registros
+Ver `DOCUMENTACION_GENERADOR_WEB.md` sección 8.1.
 
+### 10.2 Queries QA — En Claro
+
+#### R07: Valores Coinciden (EXECUTE IMMEDIATE — corregido en v5)
+
+**Modo EXECUTE IMMEDIATE (un solo script):**
 ```sql
--- UT-01: Conteo de Registros
-WITH conteos AS (
-    SELECT
-        (SELECT COUNT(*) FROM `proyecto.origen.tabla` WHERE ...) AS cnt_origen,
-        (SELECT COUNT(*) FROM `proyecto.destino.tabla` WHERE ...) AS cnt_destino
-)
-SELECT
-    cnt_origen  AS registros_origen,
-    cnt_destino AS registros_destino,
-    cnt_origen - cnt_destino AS diferencia,
-    CASE WHEN cnt_origen = cnt_destino THEN 'PASS' ELSE 'FAIL' END AS estado
-FROM conteos;
-```
-**Resultado esperado:** `diferencia = 0, estado = PASS`
+DECLARE bloque STRING;
 
-#### UT-02: Valores Únicos (2 pasos)
-
-**PASO 1 - Query Auxiliar:**
-```sql
-SELECT STRING_AGG(column_name, ', ') as columnas_group
-FROM `proyecto.destino.INFORMATION_SCHEMA.COLUMNS`
-WHERE table_name = 'tabla'
-  AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD', 'GEOGRAPHY', 'JSON')
-  AND data_type != 'BYTES';  -- Si "Tiene campos BYTES" está activado en En Claro
-```
-
-**PASO 2 - Query Final:**
-```sql
-SELECT <<COLUMNAS>>, COUNT(*) as cantidad
-FROM `proyecto.destino.tabla`
-GROUP BY <<COLUMNAS>>
-HAVING COUNT(*) > 1
-ORDER BY cantidad DESC;
-```
-**Resultado esperado:** `0 registros`
-
-#### UT-03: Integridad Bidireccional (2 pasos)
-
-**PASO 1 - Query Auxiliar:** Genera bloque de columnas con CASE WHEN por cada campo común (desde `INFORMATION_SCHEMA`).
-
-**PASO 2 - Query Final:**
-```sql
-WITH origen AS (SELECT * FROM `origen` WHERE ...),
-     destino AS (SELECT * FROM `destino` WHERE ...)
-SELECT DISTINCT
-    COALESCE(CAST(A.pk AS STRING), CAST(B.pk AS STRING)) AS pk,
-    <<PEGAR BLOQUE AQUÍ>>
-FROM origen A
-FULL OUTER JOIN destino B ON CAST(A.pk AS STRING) = CAST(B.pk AS STRING)
-LIMIT 1000;
-```
-
-#### UT-04: Resumen de Diferencias (2 pasos)
-
-Similar a UT-03 pero el Query Final solo devuelve registros donde **al menos un campo tiene diferencia** usando `CASE WHEN SUM(diff_*) > 0`.
-
----
-
-### 8.2 Queries de Validación QA — En Claro
-
-#### R01: Existencia de Tabla
-
-```sql
-SELECT 
-    project_id, dataset_id, table_id,
-    DATE(TIMESTAMP_MILLIS(creation_time)) as fecha_creacion,
-    DATE(TIMESTAMP_MILLIS(last_modified_time)) as fecha_actualizacion,
-    row_count as cantidad_registros,
-    ROUND(size_bytes / (1024*1024), 2) as tamano_mb
-FROM `proyecto.dataset.__TABLES__`
-WHERE table_id = 'tabla';
-```
-
-#### R05: Campos No Nulos (EXECUTE IMMEDIATE — un solo paso)
-
-```sql
-EXECUTE IMMEDIATE (
-    SELECT CONCAT(
-        'SELECT ',
-        STRING_AGG(
-            CONCAT(
-                '''', column_name, ''' as campo, ',
-                'COUNT(*) as total, ',
-                'COUNTIF(', column_name, ' IS NULL) as nulos, ',
-                'CASE WHEN COUNTIF(', column_name, ' IS NULL) = 0 THEN ''PASS'' ELSE ''FAIL'' END as estado'
-            ), ' UNION ALL SELECT '
+SET bloque = (
+    WITH ORIGEN AS (
+        SELECT column_name
+        FROM `proy.dataset.INFORMATION_SCHEMA.COLUMNS`
+        WHERE table_name = 'tabla'
+          AND column_name NOT IN ('pk1', 'pk2')
+    ),
+    DESTINO AS (...)
+    SELECT STRING_AGG(
+        CONCAT(
+            "A.", a.column_name, " AS valor_origen_", a.column_name, ", ",
+            "B.", b.column_name, " AS valor_destino_", b.column_name, ", ",
+            "CASE WHEN A.", a.column_name, " IS NULL AND B.", b.column_name,
+            " IS NULL THEN 'IGUAL' ",
+            "WHEN UPPER(TRIM(CAST(A.", a.column_name, " AS STRING))) = ...",
+            " THEN 'IGUAL' ",
+            "ELSE 'DIFERENTE' END AS estado_", a.column_name
         ),
-        ' FROM `proyecto.dataset.tabla` WHERE ...'
+        ',\n'
     )
-    FROM `proyecto.dataset.INFORMATION_SCHEMA.COLUMNS`
-    WHERE table_name = 'tabla'
-      AND data_type NOT IN ('ARRAY','STRUCT','RECORD','GEOGRAPHY','JSON')
+    FROM ORIGEN a JOIN DESTINO b ON UPPER(a.column_name) = UPPER(b.column_name)
 );
+
+EXECUTE IMMEDIATE '''
+WITH origen AS (...), destino AS (...)
+SELECT DISTINCT pk_cols,
+    ''' || bloque || '''
+FROM origen A
+FULL OUTER JOIN destino B
+    ON COALESCE(CAST(A.pk AS STRING), '') = COALESCE(CAST(B.pk AS STRING), '')
+ORDER BY 1, 2
+LIMIT 1000;
+''';
 ```
 
-#### R07: Valores Coinciden (2 pasos — nota de LIMIT)
+**Resultado esperado:** `0 registros` con diferencias.
 
-El Query Final incluye `LIMIT 1000` y el comentario `-- si desea el total quitar el limit 1000`.
+#### R08: Resumen de Diferencias (EXECUTE IMMEDIATE)
 
----
-
-### 8.3 Queries Encriptados (UT-E / RE)
-
-#### UT-E01 / RE01: Conteo de Registros
-
+Igual al patrón de R07 pero genera dos variables (`bloque_diff` y `bloque_sum`) con `SELECT AS STRUCT` y usa:
 ```sql
-WITH conteos AS (
-    SELECT
-        (SELECT COUNT(*) FROM `origen` WHERE ...) AS cnt_origen,
-        (SELECT COUNT(*) FROM `destino` WHERE ...) AS cnt_destino
-)
-SELECT cnt_origen, cnt_destino,
-       cnt_origen - cnt_destino AS diferencia,
-       CASE WHEN cnt_origen = cnt_destino THEN 'PASS' ELSE 'FAIL' END AS estado
-FROM conteos;
+EXECUTE IMMEDIATE '''...''' || bloque_diff || '''...''' || bloque_sum || '''...''';
 ```
 
-#### UT-E02 / RE02: Top 5 Valores Frecuentes (Meta-Query)
+### 10.3 ADEX-01: Query para desencriptar tabla
 
-Genera SQL que compara los 5 valores más frecuentes por campo BYTES:
-- **ORIGEN (STRING):** `CAST(r.campo AS STRING) AS valor`
-- **DESTINO (BYTES):** `TO_HEX(r.campo) AS valor`
-- Usa `RANK() OVER (ORDER BY COUNT(*) DESC)` con `QUALIFY ranking <= 5`
+Ver sección 4.1 de esta documentación.
 
-#### UT-E03 / RE03: Valores Nulos (Meta-Query)
+### 10.4 ADEX-02: Reporte de casuísticas
 
-Genera SQL que compara nulos y vacíos por campo BYTES:
-- **ORIGEN (STRING):** `COUNTIF(r.campo IS NULL)`, `COUNTIF(r.campo = '')`
-- **DESTINO (BYTES):** `COUNTIF(r.campo IS NULL)`, `COUNTIF(r.campo = b"")`
-
-#### UT-E04 / RE04: Top 5 Longitud de Campos (Meta-Query)
-
-Genera SQL que compara `OCTET_LENGTH` por campo BYTES con `QUALIFY ranking <= 5`.
-
----
-
-### 8.4 Queries de Validación Entre Capas (Pipeline)
-
-#### PL-01: Resumen del Pipeline
-
-```sql
-SELECT 1 as paso,
-    'tabla_raw' as tabla_origen, 'tabla_temp' as tabla_destino,
-    (SELECT COUNT(*) FROM `raw.tabla`) as cnt_origen,
-    (SELECT COUNT(*) FROM `temp.tabla`) as cnt_destino,
-    (SELECT COUNT(*) FROM `raw.tabla`) -
-    (SELECT COUNT(*) FROM `temp.tabla`) as diferencia,
-    CASE WHEN diferencia = 0 THEN '✅ OK' ELSE '⚠️ REVISAR' END as estado,
-    'ON condición JOIN' as joins_on,
-    'WHERE condición' as filtros_where,
-    'CREATE/INSERT' as transformacion
-UNION ALL
-...
-ORDER BY paso;
-```
-
-#### PL-02: Registros Perdidos
-
-UNION ALL de todos los pasos comparando tablas intermedias vs MASTER/BUSINESS.
-
-#### PL-03: Calidad MASTER/BUSINESS
-
-Incluye duplicados, nulos en PKs, conteo total vs orígenes, y huérfanos.
-
----
-
-## 9. Exportación a Excel
-
-### 9.1 Estructura del Archivo Excel
-
-#### Hoja 1: Instrucciones
-
-| Contenido |
-|-----------|
-| INSTRUCCIONES DE USO |
-| Modo utilizado (UT / QA / Pipeline) |
-| Tipo de tabla |
-| Tipo de información (En Claro / Encriptado) |
-| Pasos a seguir |
-| Criterios de éxito por regla |
-| Fecha de generación |
-
-#### Hoja 2: Inputs (tabular)
-
-| Ambiente | Proyecto | Dataset | Tabla | Filtro | Join |
-|----------|----------|---------|-------|--------|------|
-| ORIGEN | mi-proyecto | uat_master | poliza | fecha >= '2024-01-01' | — |
-| DESTINO | mi-proyecto | prd_master | poliza | fecha >= '2024-01-01' | — |
-
-> Para modo Encriptado o Tabla con RECORD, se agregan filas adicionales con los checkboxes "Tiene campos BYTES" y columna RECORD.
-
-#### Hoja 3: Resultados (combinada)
-
-| Código | Regla | Tipo | Query Auxiliar (o Meta-Query) | Query Final | Resultado Esperado | Resultado Obtenido | Estado | Fecha Ejecución Regla | Observación |
-|--------|-------|------|-------------------------------|-------------|-------------------|-------------------|--------|----------------------|-------------|
-| UT-01 | Conteo | Directo | N/A (directo) | SELECT... | diferencia = 0, PASS | | | | |
-| UT-E01 | Conteo Encriptado | Directo | N/A (directo) | SELECT... | diferencia = 0, PASS | | | | |
-| UT-E02 | Top 5 Valores | Meta-Query (2 pasos) | `-- UT-E02: ... SELECT sql_generado ...` | (PASO 2) Copiar sql_generado y ejecutar en BigQuery | Distribución comparable (STRING vs HEX) | | | | |
-| UT-E03 | Valores Nulos | Meta-Query (2 pasos) | `-- UT-E03: ... SELECT sql_generado ...` | (PASO 2) Copiar sql_generado y ejecutar en BigQuery | nulos ORIGEN = nulos DESTINO | | | | |
-| UT-E04 | Longitud Campos | Meta-Query (2 pasos) | `-- UT-E04: ... SELECT sql_generado ...` | (PASO 2) Copiar sql_generado y ejecutar en BigQuery | Longitudes BYTES consistentes | | | | |
-
-> **Nota sobre Meta-Queries:** Para las reglas E02-E04 / RE02-RE04, la columna "Query Auxiliar (o Meta-Query)" contiene el SQL completo que genera el campo `sql_generado`. La columna "Query Final" contiene la instrucción para ejecutar ese resultado. No se filtra por `isAuxiliary` para estas reglas — se exportan todas.
-
-### 9.2 Nombre del Archivo
-
-- **Pruebas Unitarias / QA:** `Validacion_{modo}_{tipo}_{tabla}_{fecha}.xlsx`
-- **Pipeline:** `Validacion_Pipeline_{tabla_master}_{fecha}.xlsx`
-
----
-
-## 10. Características Técnicas
-
-### 10.1 Tecnologías Utilizadas
-
-| Tecnología | Versión | Uso |
-|------------|---------|-----|
-| **HTML5** | — | Estructura de la página |
-| **CSS3** | — | Estilos y diseño responsivo con variables CSS |
-| **JavaScript** | ES6+ | Lógica de generación de queries |
-| **SheetJS (xlsx.js)** | 0.18.5 | Exportación a Excel |
-
-### 10.2 Compatibilidad de Navegadores
-
-| Navegador | Versión Mínima | Estado |
-|-----------|----------------|--------|
-| Chrome | 80+ | ✅ Soportado |
-| Firefox | 75+ | ✅ Soportado |
-| Edge | 80+ | ✅ Soportado |
-| Safari | 13+ | ✅ Soportado |
-| IE | — | ❌ No soportado |
-
-### 10.3 Seguridad
-
-- ✅ **Sin backend:** Todo se procesa en el navegador
-- ✅ **Sin envío de datos:** Los datos nunca salen del navegador
-- ✅ **Sin cookies:** No almacena información
-- ✅ **Solo SheetJS como dependencia externa** (CDN)
+Ver sección 4.2 de esta documentación.
 
 ---
 
@@ -696,17 +677,19 @@ let generatedPipelineQueries = []; // Queries de pipeline para exportación
 ### 11.2 Funciones de Control de UI
 
 ```javascript
-changeMode()           // Cambia modo; oculta/muestra combos y botones
-changeTableType()      // Cambia tipo de tabla; controla campos RECORD/different
-changeInfoType()       // Cambia tipo de info; controla sección encriptado y checkboxes BYTES
-validateForm()         // Valida campos obligatorios según combinación activa
-getInputValues()       // Recopila todos los valores del formulario (incl. checkboxes BYTES)
+changeMode()                       // Cambia modo; oculta/muestra combos y botones
+changeTableType()                  // Cambia tipo de tabla; controla campos RECORD/different
+changeInfoType()                   // Cambia tipo de info; controla sección encriptado y checkboxes BYTES
+updateBytesCheckboxVisibility()    // Muestra/oculta checkboxes BYTES según modo+tipo (incl. 'different')
+validateForm()                     // Valida campos obligatorios según combinación activa
+getInputValues()                   // Recopila todos los valores del formulario
 ```
 
 ### 11.3 Funciones de Generación
 
 ```javascript
-generateQueries()                  // Dispatcher: llama la función correcta según modo+tipo+info
+generateQueries()                  // Dispatcher: llama la función correcta según modo+tipo+info+adicionales
+generateAdditionalQueries(v)       // Genera ADEX-01 + ADEX-02 (simple o record)
 generateUTQueries(v)               // Genera UT-01 a UT-04 (simple y record)
 generateQAQueries(v)               // Genera R01 a R08 (simple y record)
 generateUTQueriesDifferent(v)      // Genera UT-01-DIFF, UT-03, UT-04 (diferente estructura)
@@ -715,53 +698,51 @@ generateEncryptedQueries(v)        // Genera UT-E01 a E04 / RE01 a RE04 (encript
 generatePipelineQueries()          // Genera PL-01, PL-02, PL-03
 ```
 
-### 11.4 Función `generateEncryptedQueries` — Detalle
+### 11.4 Lógica del dispatcher `generateQueries()`
 
 ```javascript
-function generateEncryptedQueries(v) {
-    const isRecord = currentTableType === 'record';
+function generateQueries() {
+    const queriesAdicionales = document.getElementById('queriesAdicionalesCheck')?.checked ?? false;
 
-    // WHERE normalizado a una sola línea (para DECLARE en BigQuery)
-    const whOrigenSafe = whereOrigen.replace(/\s*\n\s*/g, ' ').trim();
-    const whDestinoSafe = whereDestino.replace(/\s*\n\s*/g, ' ').trim();
-
-    // DECLARE variables para evitar "Unclosed string literal"
-    const declareBase = `DECLARE tabla_origen STRING DEFAULT '${tablaOrigen}';
-DECLARE tabla_destino STRING DEFAULT '${tablaDestino}';
-DECLARE wh_origen STRING DEFAULT "${whOrigenSafe}";
-DECLARE wh_destino STRING DEFAULT "${whDestinoSafe}";`;
-
-    // Filtros INFORMATION_SCHEMA según checkboxes
-    const bytesFilterOrigen = v.origenHasBytes ? "\n    AND data_type = 'BYTES'" : '';
-    const bytesFilterDestino = v.destinoHasBytes ? "\n    AND data_type = 'BYTES'" : '';
-
-    // Prefijo de regla: UT-E (unitarias) o RE (qa)
-    const rP = currentMode === 'ut' ? 'UT-E' : 'RE';
-
-    // Genera: Conteo(E01), Top5Frecuentes(E02), Nulos(E03), Longitud(E04)
+    if (queriesAdicionales) {
+        queries = generateAdditionalQueries(v);
+        // → Inyecta banner del Desencriptador en el DOM
+    } else if (currentInfoType === 'encrypted') {
+        queries = generateEncryptedQueries(v);
+    } else if (currentTableType === 'different') {
+        queries = currentMode === 'ut' ? generateUTQueriesDifferent(v) : generateQAQueriesDifferent(v);
+    } else {
+        queries = currentMode === 'ut' ? generateUTQueries(v) : generateQAQueries(v);
+    }
 }
 ```
 
-### 11.5 Funciones de Pipeline
+### 11.5 Función `generateAdditionalQueries(v)` — Detalle
 
 ```javascript
-parseSQL(sql)                        // Extrae tablas, PKs, filtros y relaciones del SP
-cleanTableName(tableName)            // Valida formato proyecto.dataset.tabla
-analyzePipeline()                    // Orquesta el análisis del código SQL
-displayPipelineResults()             // Muestra diagrama de tablas detectadas
-addPredecessorSP()                   // Agrega textarea para SP predecesor
-removePredecessorSP(button)          // Elimina SP predecesor
+function generateAdditionalQueries(v) {
+    const isRecord = currentTableType === 'record';
+    const pkList   = v.primaryKeys.split(',').map(p => p.trim());
+
+    // Variables de filtros
+    const whereDestinoStr = v.filtroDestino || 'TRUE';
+    const whereOrigenRaw  = v.filtroOrigen  ? v.filtroOrigen.trim()  : '';
+    const whereDestinoRaw = v.filtroDestino ? v.filtroDestino.trim() : '';
+
+    // Filtro BYTES (excluye BYTES si destinoHasBytes = true)
+    const bytesFilterDestino = v.destinoHasBytes ? "\n          AND data_type != 'BYTES'" : '';
+
+    const queries = [];
+
+    if (isRecord) {
+        // ADEX-01 RECORD + ADEX-02 RECORD
+    } else {
+        // ADEX-01 Simple + ADEX-02 Simple
+    }
+
+    return queries;
+}
 ```
-
-### 11.6 bytesFilter en INFORMATION_SCHEMA
-
-En modo "En Claro" con checkbox "Tiene campos BYTES" activo:
-```javascript
-const bytesOpUT = currentInfoType === 'encrypted' ? "= 'BYTES'" : "!= 'BYTES'";
-const bytesFilterOrigen = v.origenHasBytes ? `\n    AND data_type ${bytesOpUT}` : '';
-```
-
-Esto asegura que las consultas a `INFORMATION_SCHEMA` excluyan o incluyan campos BYTES según el contexto.
 
 ---
 
@@ -771,45 +752,32 @@ Esto asegura que las consultas a `INFORMATION_SCHEMA` excluyan o incluyan campos
 
 | Error | Causa | Solución |
 |-------|-------|----------|
+| `Unclosed string literal at [N:M]` | Filtro WHERE con comillas simples | La app usa `"""..."""` en DECLAREs; verificar el filtro |
+| `EXECUTE IMMEDIATE sql string cannot be NULL` | `COLUMNAS_COMUNES` vacío (sin campos comunes) | ADEX-02 devuelve mensaje: "Sin columnas comunes..." |
+| `Syntax error inside FORMAT('''...''')` | Comillas simples en el bloque dinámico | Corregido en v5: se usa `CONCAT("...")` y `|| bloque ||` |
 | "Campos requeridos" | Falta proyecto, dataset o tabla | Completar todos los campos obligatorios |
 | "Primary Keys vacías" | No se ingresaron PKs | Ingresar al menos una PK |
-| "Unclosed string literal" | Filtro WHERE con saltos de línea | La app normaliza automáticamente; verificar filtro |
-| "Trailing comma after WITH" | Error en CTE generado | Reportar — ya fue corregido en v3 |
 | Excel no se descarga | Bloqueador de popups | Permitir descargas del sitio |
-| No detecta tablas del SP | SP con CTEs o formato no estándar | Ingresar PKs manualmente en el campo |
-| Comboboxes sin respuesta | Corrupción UTF-8 del archivo | Usar siempre el archivo original `_v3.html` |
+| Comboboxes sin respuesta | Error JS en el script | Usar la versión original del archivo; no editar manualmente |
 
 ### 12.2 Verificación de Queries
 
-Antes de ejecutar, verificar:
+Antes de ejecutar en BigQuery, verificar:
 1. ✅ Nombres de proyecto/dataset/tabla correctos
 2. ✅ Backticks (`` ` ``) alrededor de nombres completos
-3. ✅ Filtros con sintaxis SQL válida (sin saltos de línea en literales)
+3. ✅ Filtros con sintaxis SQL válida
 4. ✅ PKs escritas exactamente como en la tabla
 5. ✅ Para RECORD: nombre de columna RECORD correcto en origen y destino
+6. ✅ Para ADEX-01: `codigo_tipo` con el código KMS correcto antes de copiar
+7. ✅ Para ADEX-02: verificar que hay columnas comunes entre origen y destino
 
 ---
 
-## 13. Integración con Plan de Validación QA
+## 13. Exportación a Excel
 
-### 13.1 Uso por Nivel y Responsable
+Sin cambios respecto a la documentación v1 (ver `DOCUMENTACION_GENERADOR_WEB.md` sección 9).
 
-| Nivel | Modo | Responsable | Reglas |
-|-------|------|-------------|--------|
-| **1** | Pruebas Unitarias — En Claro | Data Engineer | UT-01 a UT-04 |
-| **1E** | Pruebas Unitarias — Encriptado | Data Engineer | UT-E01 a UT-E04 |
-| **1B** | Análisis de Pipeline | Data Engineer / QA | PL-01, PL-02, PL-03 |
-| **2** | Validación QA — En Claro | Analista QA | R01–R08 |
-| **2E** | Validación QA — Encriptado | Analista QA | RE01–RE04 |
-
-### 13.2 Evidencias Generadas
-
-El Excel exportado sirve como evidencia para:
-- ✅ Auditorías de calidad de datos
-- ✅ Documentación de pruebas
-- ✅ Trazabilidad de validaciones
-- ✅ Actas de ratificación
-- ✅ Seguimiento de pipelines ETL
+Los queries ADEX-01 y ADEX-02 se incluyen en la exportación cuando se generan.
 
 ---
 
@@ -818,9 +786,48 @@ El Excel exportado sirve como evidencia para:
 | Versión | Archivo | Fecha | Cambios principales |
 |---------|---------|-------|---------------------|
 | 1.0.0 | `index.html` | 2026-01-20 | Versión inicial: UT-01 a UT-03, R01-R07, Pipeline |
-| 1.1.0 | `generador_query_qa.html` | 2026-01-28 | Copia estable con comentario autor |
 | 2.0.0 | `generador_query_qa_v2.html` | 2026-02-05 | UT-04/R08 Resumen de Diferencias, tabla diferente estructura |
-| 3.0.0 | `generador_query_qa_v3.html` | 2026-02-20 | Nuevo combo "Tipo de información", tablas encriptadas (BYTES), checkbox "Tiene campos BYTES", fix UT diferente estructura, normalización WHERE multilinea |
+| 3.0.0 | `generador_query_qa_v3.html` | 2026-02-20 | Nuevo combo "Tipo de información", tablas encriptadas (BYTES), checkbox "Tiene campos BYTES", normalización WHERE multilinea |
+| 4.0.0 | `generador_query_qa_v4.html` | 2026-02-24 | Fix comillas anidadas en R07/UT03 (FORMAT→CONCAT+\|\|), checkbox BYTES visible para "Diferente estructura", mejoras COALESCE en JOIN y ORDER BY con todas las PKs |
+| 5.0.0 | `generador_query_qa_v5.html` | 2026-02-26 | **Nuevo:** checkbox "🔍 Queries adicionales", ADEX-01 (desencriptar tabla Simple/RECORD), ADEX-02 (reporte casuísticas Simple/RECORD con COLUMNAS_COMUNES), banner de acceso al Desencriptador Interseguro, título sin número de versión visible, fix WHERE con comillas simples en ADEX-01 (DEFAULT `"""..."""`), ADEX-02 RECORD usa `COLUMN_FIELD_PATHS` para ambas tablas + CTEs `origen_cte`/`destino_cte` con UNNEST |
 
 ---
- 
+
+## 15. Integración con el Desencriptador Interseguro
+
+El botón "🔑 Abrir Desencriptador" enlaza a: https://demo-decryptor-726731649140.us-central1.run.app/
+
+### 15.1 Flujo completo de desencriptado con ADEX-01
+
+```
+BigQuery (tabla con BYTES)
+        │
+        ▼
+  [ADEX-01 — generado por la herramienta]
+  DECLARE where_condition STRING DEFAULT """filtro""";
+  DECLARE codigo_tipo STRING DEFAULT 'C_NAME';
+  SET sql = (...); SELECT sql;
+        │
+        ▼
+  BigQuery ejecuta → devuelve columna `sql` con SELECT dinámico
+        │
+        ▼
+  Copiar el contenido de `sql`
+        │
+        ▼
+  Desencriptador Interseguro → 🗄️ Desencriptar SQL
+  • Pegar SELECT en "Query SQL"
+  • Indicar tabla destino
+  • ▶️ Ejecutar y guardar
+        │
+        ▼
+  Tabla destino en BigQuery con datos desencriptados
+```
+
+### 15.2 Convención de campos para el Desencriptador
+
+Los campos que ADEX-01 genera con el patrón `'C_CODE' AS v_tipo_CAMPO` son reconocidos automáticamente por el Desencriptador para determinar qué campos desencriptar y con qué clave KMS.
+
+---
+
+*Documentación generada: 2026-02-26 | Versión del documento: 2.0.0*
