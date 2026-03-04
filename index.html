@@ -3209,7 +3209,9 @@ SELECT
     STRING_AGG(column_name, ', ') as columnas_group
 FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
 WHERE table_name = '${v.tablaDestino}'
-  AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD', 'GEOGRAPHY', 'JSON')${bytesFilterDestino};`
+  AND data_type NOT LIKE 'ARRAY%'
+  AND data_type NOT LIKE 'STRUCT%'
+  AND data_type NOT LIKE 'RECORD%'${bytesFilterDestino};`
                     });
 
                     // UT-02 FINAL para tabla simple
@@ -3256,7 +3258,9 @@ campos_base AS (
     SELECT column_name as campo
     FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
     WHERE table_name = '${v.tablaDestino}'
-      AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD')${bytesFilterDestino}
+      AND data_type NOT LIKE 'ARRAY%'
+      AND data_type NOT LIKE 'STRUCT%'
+      AND data_type NOT LIKE 'RECORD%'${bytesFilterDestino}
 )
 SELECT 
     CONCAT(
@@ -3306,7 +3310,9 @@ SET col_list = (
     SELECT STRING_AGG(column_name ORDER BY ordinal_position)
     FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
     WHERE table_name = '${v.tablaDestino}'
-      AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD', 'GEOGRAPHY', 'JSON')${bytesFilterDestino}
+      AND data_type NOT LIKE 'ARRAY%'
+      AND data_type NOT LIKE 'STRUCT%'
+      AND data_type NOT LIKE 'RECORD%'${bytesFilterDestino}
 );
 
 EXECUTE IMMEDIATE '''
@@ -3340,7 +3346,9 @@ SET col_base = (
     SELECT STRING_AGG(CONCAT('t.', column_name) ORDER BY ordinal_position)
     FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
     WHERE table_name = '${v.tablaDestino}'
-      AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD')${bytesFilterDestino}
+      AND data_type NOT LIKE 'ARRAY%'
+      AND data_type NOT LIKE 'STRUCT%'
+      AND data_type NOT LIKE 'RECORD%'${bytesFilterDestino}
 );
 
 SET col_rec = (
@@ -3681,13 +3689,17 @@ WITH ORIGEN AS (
   SELECT column_name
   FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.INFORMATION_SCHEMA.COLUMNS\`
   WHERE table_name = '${v.tablaOrigen}'
-    AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD')${bytesFilterOrigen}
+    AND data_type NOT LIKE 'ARRAY%'
+    AND data_type NOT LIKE 'STRUCT%'
+    AND data_type NOT LIKE 'RECORD%'${bytesFilterOrigen}
 ),
 DESTINO AS (
   SELECT column_name
   FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
   WHERE table_name = '${v.tablaDestino}'
-    AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD')${bytesFilterDestino}
+    AND data_type NOT LIKE 'ARRAY%'
+    AND data_type NOT LIKE 'STRUCT%'
+    AND data_type NOT LIKE 'RECORD%'${bytesFilterDestino}
 )
 SELECT
   STRING_AGG(
@@ -3831,13 +3843,17 @@ SET (bloque_diff, bloque_sum) = (
         SELECT column_name
         FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.INFORMATION_SCHEMA.COLUMNS\`
         WHERE table_name = '${v.tablaOrigen}'
-          AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD')${bytesFilterOrigen}
+          AND data_type NOT LIKE 'ARRAY%'
+          AND data_type NOT LIKE 'STRUCT%'
+          AND data_type NOT LIKE 'RECORD%'${bytesFilterOrigen}
     ),
     DESTINO AS (
         SELECT column_name
         FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
         WHERE table_name = '${v.tablaDestino}'
-          AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD')${bytesFilterDestino}
+          AND data_type NOT LIKE 'ARRAY%'
+          AND data_type NOT LIKE 'STRUCT%'
+          AND data_type NOT LIKE 'RECORD%'${bytesFilterDestino}
     )
     SELECT AS STRUCT
         STRING_AGG(
@@ -4020,13 +4036,17 @@ FROM (
     SELECT column_name AS campo
     FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.INFORMATION_SCHEMA.COLUMNS\`
     WHERE table_name = '${v.tablaOrigen}'
-      AND data_type NOT IN ('ARRAY','STRUCT','RECORD','GEOGRAPHY','JSON')
+      AND data_type NOT LIKE 'ARRAY%'
+      AND data_type NOT LIKE 'STRUCT%'
+      AND data_type NOT LIKE 'RECORD%'
 ) o
 FULL OUTER JOIN (
     SELECT column_name AS campo
     FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
     WHERE table_name = '${v.tablaDestino}'
-      AND data_type NOT IN ('ARRAY','STRUCT','RECORD','GEOGRAPHY','JSON')
+      AND data_type NOT LIKE 'ARRAY%'
+      AND data_type NOT LIKE 'STRUCT%'
+      AND data_type NOT LIKE 'RECORD%'
 ) d ON UPPER(o.campo) = UPPER(d.campo)
 WHERE o.campo IS NULL OR d.campo IS NULL
 
@@ -4049,7 +4069,9 @@ FROM (
     WHERE table_name = '${v.tablaOrigen}'
       AND column_name = '${v.recordColumnOrigen}'
       AND field_path  != '${v.recordColumnOrigen}'
-      AND data_type NOT IN ('ARRAY','STRUCT','RECORD','GEOGRAPHY','JSON')
+      AND data_type NOT LIKE 'ARRAY%'
+      AND data_type NOT LIKE 'STRUCT%'
+      AND data_type NOT LIKE 'RECORD%'
 ) o
 FULL OUTER JOIN (
     SELECT REPLACE(field_path, CONCAT('${v.recordColumnDestino}', '.'), '') AS campo
@@ -4057,7 +4079,9 @@ FULL OUTER JOIN (
     WHERE table_name = '${v.tablaDestino}'
       AND column_name = '${v.recordColumnDestino}'
       AND field_path  != '${v.recordColumnDestino}'
-      AND data_type NOT IN ('ARRAY','STRUCT','RECORD','GEOGRAPHY','JSON')
+      AND data_type NOT LIKE 'ARRAY%'
+      AND data_type NOT LIKE 'STRUCT%'
+      AND data_type NOT LIKE 'RECORD%'
 ) d ON UPPER(o.campo) = UPPER(d.campo)
 WHERE o.campo IS NULL OR d.campo IS NULL
 ORDER BY seccion, campo;`
@@ -4119,13 +4143,17 @@ FROM (
     SELECT column_name AS campo, data_type AS tipo
     FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.INFORMATION_SCHEMA.COLUMNS\`
     WHERE table_name = '${v.tablaOrigen}'
-      AND data_type NOT IN ('ARRAY','STRUCT','RECORD','GEOGRAPHY','JSON')
+      AND data_type NOT LIKE 'ARRAY%'
+      AND data_type NOT LIKE 'STRUCT%'
+      AND data_type NOT LIKE 'RECORD%'
 ) o
 FULL OUTER JOIN (
     SELECT column_name AS campo, data_type AS tipo
     FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
     WHERE table_name = '${v.tablaDestino}'
-      AND data_type NOT IN ('ARRAY','STRUCT','RECORD','GEOGRAPHY','JSON')
+      AND data_type NOT LIKE 'ARRAY%'
+      AND data_type NOT LIKE 'STRUCT%'
+      AND data_type NOT LIKE 'RECORD%'
 ) d ON UPPER(o.campo) = UPPER(d.campo)
 WHERE o.tipo != d.tipo OR o.campo IS NULL OR d.campo IS NULL
 
@@ -4146,7 +4174,9 @@ FROM (
     WHERE table_name = '${v.tablaOrigen}'
       AND column_name = '${v.recordColumnOrigen}'
       AND field_path  != '${v.recordColumnOrigen}'
-      AND data_type NOT IN ('ARRAY','STRUCT','RECORD','GEOGRAPHY','JSON')
+      AND data_type NOT LIKE 'ARRAY%'
+      AND data_type NOT LIKE 'STRUCT%'
+      AND data_type NOT LIKE 'RECORD%'
 ) o
 FULL OUTER JOIN (
     SELECT
@@ -4156,7 +4186,9 @@ FULL OUTER JOIN (
     WHERE table_name = '${v.tablaDestino}'
       AND column_name = '${v.recordColumnDestino}'
       AND field_path  != '${v.recordColumnDestino}'
-      AND data_type NOT IN ('ARRAY','STRUCT','RECORD','GEOGRAPHY','JSON')
+      AND data_type NOT LIKE 'ARRAY%'
+      AND data_type NOT LIKE 'STRUCT%'
+      AND data_type NOT LIKE 'RECORD%'
 ) d ON UPPER(o.campo) = UPPER(d.campo)
 WHERE o.tipo != d.tipo OR o.campo IS NULL OR d.campo IS NULL
 ORDER BY seccion, campo;`
@@ -4244,7 +4276,9 @@ SET query_nulos = (
     FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
     WHERE table_name = '${v.tablaDestino}'
       AND is_nullable = 'YES'${bytesFilterDestino}
-      AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD')
+      AND data_type NOT LIKE 'ARRAY%'
+      AND data_type NOT LIKE 'STRUCT%'
+      AND data_type NOT LIKE 'RECORD%'
 );
 
 EXECUTE IMMEDIATE query_nulos;`
@@ -4305,7 +4339,9 @@ EXECUTE IMMEDIATE query_nulos;`
         STRING_AGG(column_name, ', ') as columnas_group
     FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
     WHERE table_name = '${v.tablaDestino}'
-      AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD', 'GEOGRAPHY', 'JSON')${bytesFilterDestino};`
+      AND data_type NOT LIKE 'ARRAY%'
+      AND data_type NOT LIKE 'STRUCT%'
+      AND data_type NOT LIKE 'RECORD%'${bytesFilterDestino};`
                     });
     
                     // R06 FINAL para tabla simple
@@ -4344,7 +4380,9 @@ EXECUTE IMMEDIATE query_nulos;`
         SELECT column_name
         FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
         WHERE table_name = '${v.tablaDestino}'
-          AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD')${bytesFilterDestino}
+          AND data_type NOT LIKE 'ARRAY%'
+          AND data_type NOT LIKE 'STRUCT%'
+          AND data_type NOT LIKE 'RECORD%'${bytesFilterDestino}
     ),
     campos_record AS (
         SELECT 
@@ -4402,7 +4440,9 @@ SET col_list = (
     SELECT STRING_AGG(column_name ORDER BY ordinal_position)
     FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
     WHERE table_name = '${v.tablaDestino}'
-      AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD', 'GEOGRAPHY', 'JSON')${bytesFilterDestino}
+      AND data_type NOT LIKE 'ARRAY%'
+      AND data_type NOT LIKE 'STRUCT%'
+      AND data_type NOT LIKE 'RECORD%'${bytesFilterDestino}
 );
 
 EXECUTE IMMEDIATE '''
@@ -4435,7 +4475,9 @@ SET col_base = (
     SELECT STRING_AGG(CONCAT('t.', column_name) ORDER BY ordinal_position)
     FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
     WHERE table_name = '${v.tablaDestino}'
-      AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD')${bytesFilterDestino}
+      AND data_type NOT LIKE 'ARRAY%'
+      AND data_type NOT LIKE 'STRUCT%'
+      AND data_type NOT LIKE 'RECORD%'${bytesFilterDestino}
 );
 
 SET col_rec = (
@@ -4782,13 +4824,17 @@ WITH ORIGEN AS (
   SELECT column_name
   FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.INFORMATION_SCHEMA.COLUMNS\`
   WHERE table_name = '${v.tablaOrigen}'
-    AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD')${bytesFilterOrigen}
+    AND data_type NOT LIKE 'ARRAY%'
+    AND data_type NOT LIKE 'STRUCT%'
+    AND data_type NOT LIKE 'RECORD%'${bytesFilterOrigen}
 ),
 DESTINO AS (
   SELECT column_name
   FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
   WHERE table_name = '${v.tablaDestino}'
-    AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD')${bytesFilterDestino}
+    AND data_type NOT LIKE 'ARRAY%'
+    AND data_type NOT LIKE 'STRUCT%'
+    AND data_type NOT LIKE 'RECORD%'${bytesFilterDestino}
 )
 SELECT
   STRING_AGG(
@@ -4932,13 +4978,17 @@ SET (bloque_diff, bloque_sum) = (
         SELECT column_name
         FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.INFORMATION_SCHEMA.COLUMNS\`
         WHERE table_name = '${v.tablaOrigen}'
-          AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD')${bytesFilterOrigen}
+          AND data_type NOT LIKE 'ARRAY%'
+          AND data_type NOT LIKE 'STRUCT%'
+          AND data_type NOT LIKE 'RECORD%'${bytesFilterOrigen}
     ),
     DESTINO AS (
         SELECT column_name
         FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
         WHERE table_name = '${v.tablaDestino}'
-          AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD')${bytesFilterDestino}
+          AND data_type NOT LIKE 'ARRAY%'
+          AND data_type NOT LIKE 'STRUCT%'
+          AND data_type NOT LIKE 'RECORD%'${bytesFilterDestino}
     )
     SELECT AS STRUCT
         STRING_AGG(
@@ -5163,7 +5213,9 @@ SELECT
     STRING_AGG(column_name, ', ') as columnas_group
 FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
 WHERE table_name = '${v.tablaDestino}'
-  AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD', 'GEOGRAPHY', 'JSON')${bytesFilterDestino};`
+  AND data_type NOT LIKE 'ARRAY%'
+  AND data_type NOT LIKE 'STRUCT%'
+  AND data_type NOT LIKE 'RECORD%'${bytesFilterDestino};`
             });
 
             // UT-02: Duplicados - Final
@@ -5259,14 +5311,18 @@ WITH ORIGEN AS (
   FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.INFORMATION_SCHEMA.COLUMNS\`
   WHERE table_name = '${v.tablaOrigen}'
     AND column_name NOT IN (${pkListOrigen.map(p => `'${p}'`).join(', ')})
-    AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD')
+    AND data_type NOT LIKE 'ARRAY%'
+    AND data_type NOT LIKE 'STRUCT%'
+    AND data_type NOT LIKE 'RECORD%'
 ), 
 DESTINO AS (
   SELECT column_name
   FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
   WHERE table_name = '${v.tablaDestino}'
     AND column_name NOT IN (${pkListDestino.map(p => `'${p}'`).join(', ')})
-    AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD')
+    AND data_type NOT LIKE 'ARRAY%'
+    AND data_type NOT LIKE 'STRUCT%'
+    AND data_type NOT LIKE 'RECORD%'
 )
 SELECT 
   STRING_AGG(
@@ -5321,7 +5377,9 @@ origen_sin_match AS (
   FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.INFORMATION_SCHEMA.COLUMNS\` o
   WHERE o.table_name = '${v.tablaOrigen}'
     AND o.column_name NOT IN (${pkListOrigen.map(p => `'${p}'`).join(', ')})
-    AND o.data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD')
+    AND o.data_type NOT LIKE 'ARRAY%'
+    AND o.data_type NOT LIKE 'STRUCT%'
+    AND o.data_type NOT LIKE 'RECORD%'
     AND NOT EXISTS (
       SELECT 1 FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\` d
       WHERE d.table_name = '${v.tablaDestino}' AND UPPER(d.column_name) = UPPER(o.column_name)
@@ -5334,7 +5392,9 @@ destino_sin_match AS (
   FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\` d
   WHERE d.table_name = '${v.tablaDestino}'
     AND d.column_name NOT IN (${pkListDestino.map(p => `'${p}'`).join(', ')})
-    AND d.data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD')
+    AND d.data_type NOT LIKE 'ARRAY%'
+    AND d.data_type NOT LIKE 'STRUCT%'
+    AND d.data_type NOT LIKE 'RECORD%'
     AND NOT EXISTS (
       SELECT 1 FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.INFORMATION_SCHEMA.COLUMNS\` o
       WHERE o.table_name = '${v.tablaOrigen}' AND UPPER(o.column_name) = UPPER(d.column_name)
@@ -5442,7 +5502,9 @@ origen_sin_match AS (
   FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.INFORMATION_SCHEMA.COLUMNS\` o
   WHERE o.table_name = '${v.tablaOrigen}'
     AND o.column_name NOT IN (${pkListOrigen.map(p => `'${p}'`).join(', ')})
-    AND o.data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD')
+    AND o.data_type NOT LIKE 'ARRAY%'
+    AND o.data_type NOT LIKE 'STRUCT%'
+    AND o.data_type NOT LIKE 'RECORD%'
     AND NOT EXISTS (
       SELECT 1 FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\` d
       WHERE d.table_name = '${v.tablaDestino}' AND UPPER(d.column_name) = UPPER(o.column_name)
@@ -5458,7 +5520,9 @@ destino_sin_match AS (
   FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\` d
   WHERE d.table_name = '${v.tablaDestino}'
     AND d.column_name NOT IN (${pkListDestino.map(p => `'${p}'`).join(', ')})
-    AND d.data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD')
+    AND d.data_type NOT LIKE 'ARRAY%'
+    AND d.data_type NOT LIKE 'STRUCT%'
+    AND d.data_type NOT LIKE 'RECORD%'
     AND NOT EXISTS (
       SELECT 1 FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.INFORMATION_SCHEMA.COLUMNS\` o
       WHERE o.table_name = '${v.tablaOrigen}' AND UPPER(o.column_name) = UPPER(d.column_name)
@@ -5594,13 +5658,17 @@ WITH ORIGEN AS (
   SELECT column_name
   FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.INFORMATION_SCHEMA.COLUMNS\`
   WHERE table_name = '${v.tablaOrigen}'
-    AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD')${bytesFilterOrigen}
+    AND data_type NOT LIKE 'ARRAY%'
+    AND data_type NOT LIKE 'STRUCT%'
+    AND data_type NOT LIKE 'RECORD%'${bytesFilterOrigen}
 ),
 DESTINO AS (
   SELECT column_name
   FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
   WHERE table_name = '${v.tablaDestino}'
-    AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD')${bytesFilterDestino}
+    AND data_type NOT LIKE 'ARRAY%'
+    AND data_type NOT LIKE 'STRUCT%'
+    AND data_type NOT LIKE 'RECORD%'${bytesFilterDestino}
 )
 SELECT
   STRING_AGG(
@@ -5809,13 +5877,19 @@ cols_origen AS (
   SELECT column_name,
     (SELECT STRING_AGG(normalizar_sinonimo(w), '_' ORDER BY normalizar_sinonimo(w)) FROM UNNEST(SPLIT(LOWER(column_name), '_')) w WHERE w != '') as norm
   FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.INFORMATION_SCHEMA.COLUMNS\`
-  WHERE table_name = '${v.tablaOrigen}' AND column_name NOT IN (${pkListOrigen.map(p => `'${p}'`).join(', ')}) AND data_type NOT IN ('ARRAY','STRUCT','RECORD')
+  WHERE table_name = '${v.tablaOrigen}' AND column_name NOT IN (${pkListOrigen.map(p => `'${p}'`).join(', ')})
+    AND data_type NOT LIKE 'ARRAY%'
+    AND data_type NOT LIKE 'STRUCT%'
+    AND data_type NOT LIKE 'RECORD%'
 ),
 cols_destino AS (
   SELECT column_name,
     (SELECT STRING_AGG(normalizar_sinonimo(w), '_' ORDER BY normalizar_sinonimo(w)) FROM UNNEST(SPLIT(LOWER(column_name), '_')) w WHERE w != '') as norm
   FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
-  WHERE table_name = '${v.tablaDestino}' AND column_name NOT IN (${pkListDestino.map(p => `'${p}'`).join(', ')}) AND data_type NOT IN ('ARRAY','STRUCT','RECORD')
+  WHERE table_name = '${v.tablaDestino}' AND column_name NOT IN (${pkListDestino.map(p => `'${p}'`).join(', ')})
+    AND data_type NOT LIKE 'ARRAY%'
+    AND data_type NOT LIKE 'STRUCT%'
+    AND data_type NOT LIKE 'RECORD%'
 ),
 -- Match exacto + por sin\u00f3nimos
 matches AS (
@@ -6068,7 +6142,9 @@ SET query_nulos = (
     FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
     WHERE table_name = '${v.tablaDestino}'
       AND is_nullable = 'YES'${bytesFilterDestino}
-      AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD')
+      AND data_type NOT LIKE 'ARRAY%'
+      AND data_type NOT LIKE 'STRUCT%'
+      AND data_type NOT LIKE 'RECORD%'
 );
 
 EXECUTE IMMEDIATE query_nulos;`
@@ -6087,7 +6163,9 @@ SELECT
     STRING_AGG(column_name, ', ') as columnas_group
 FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
 WHERE table_name = '${v.tablaDestino}'
-  AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD', 'GEOGRAPHY', 'JSON')${bytesFilterDestino};`
+  AND data_type NOT LIKE 'ARRAY%'
+  AND data_type NOT LIKE 'STRUCT%'
+  AND data_type NOT LIKE 'RECORD%'${bytesFilterDestino};`
             });
 
             // R06: Sin duplicados - Final
@@ -6181,14 +6259,18 @@ WITH ORIGEN AS (
   FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.INFORMATION_SCHEMA.COLUMNS\`
   WHERE table_name = '${v.tablaOrigen}'
     AND column_name NOT IN (${pkListOrigen.map(p => `'${p}'`).join(', ')})
-    AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD')
+    AND data_type NOT LIKE 'ARRAY%'
+    AND data_type NOT LIKE 'STRUCT%'
+    AND data_type NOT LIKE 'RECORD%'
 ), 
 DESTINO AS (
   SELECT column_name
   FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
   WHERE table_name = '${v.tablaDestino}'
     AND column_name NOT IN (${pkListDestino.map(p => `'${p}'`).join(', ')})
-    AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD')
+    AND data_type NOT LIKE 'ARRAY%'
+    AND data_type NOT LIKE 'STRUCT%'
+    AND data_type NOT LIKE 'RECORD%'
 )
 SELECT 
   STRING_AGG(
@@ -6243,7 +6325,9 @@ origen_sin_match AS (
   FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.INFORMATION_SCHEMA.COLUMNS\` o
   WHERE o.table_name = '${v.tablaOrigen}'
     AND o.column_name NOT IN (${pkListOrigen.map(p => `'${p}'`).join(', ')})
-    AND o.data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD')
+    AND o.data_type NOT LIKE 'ARRAY%'
+    AND o.data_type NOT LIKE 'STRUCT%'
+    AND o.data_type NOT LIKE 'RECORD%'
     AND NOT EXISTS (
       SELECT 1 FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\` d
       WHERE d.table_name = '${v.tablaDestino}' AND UPPER(d.column_name) = UPPER(o.column_name)
@@ -6256,7 +6340,9 @@ destino_sin_match AS (
   FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\` d
   WHERE d.table_name = '${v.tablaDestino}'
     AND d.column_name NOT IN (${pkListDestino.map(p => `'${p}'`).join(', ')})
-    AND d.data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD')
+    AND d.data_type NOT LIKE 'ARRAY%'
+    AND d.data_type NOT LIKE 'STRUCT%'
+    AND d.data_type NOT LIKE 'RECORD%'
     AND NOT EXISTS (
       SELECT 1 FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.INFORMATION_SCHEMA.COLUMNS\` o
       WHERE o.table_name = '${v.tablaOrigen}' AND UPPER(o.column_name) = UPPER(d.column_name)
@@ -6364,7 +6450,9 @@ origen_sin_match AS (
   FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.INFORMATION_SCHEMA.COLUMNS\` o
   WHERE o.table_name = '${v.tablaOrigen}'
     AND o.column_name NOT IN (${pkListOrigen.map(p => `'${p}'`).join(', ')})
-    AND o.data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD')
+    AND o.data_type NOT LIKE 'ARRAY%'
+    AND o.data_type NOT LIKE 'STRUCT%'
+    AND o.data_type NOT LIKE 'RECORD%'
     AND NOT EXISTS (
       SELECT 1 FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\` d
       WHERE d.table_name = '${v.tablaDestino}' AND UPPER(d.column_name) = UPPER(o.column_name)
@@ -6380,7 +6468,9 @@ destino_sin_match AS (
   FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\` d
   WHERE d.table_name = '${v.tablaDestino}'
     AND d.column_name NOT IN (${pkListDestino.map(p => `'${p}'`).join(', ')})
-    AND d.data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD')
+    AND d.data_type NOT LIKE 'ARRAY%'
+    AND d.data_type NOT LIKE 'STRUCT%'
+    AND d.data_type NOT LIKE 'RECORD%'
     AND NOT EXISTS (
       SELECT 1 FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.INFORMATION_SCHEMA.COLUMNS\` o
       WHERE o.table_name = '${v.tablaOrigen}' AND UPPER(o.column_name) = UPPER(d.column_name)
@@ -6581,13 +6671,19 @@ cols_origen AS (
   SELECT column_name,
     (SELECT STRING_AGG(normalizar_sinonimo(w), '_' ORDER BY normalizar_sinonimo(w)) FROM UNNEST(SPLIT(LOWER(column_name), '_')) w WHERE w != '') as norm
   FROM \`${v.proyectoOrigen}.${v.datasetOrigen}.INFORMATION_SCHEMA.COLUMNS\`
-  WHERE table_name = '${v.tablaOrigen}' AND column_name NOT IN (${pkListOrigen.map(p => `'${p}'`).join(', ')}) AND data_type NOT IN ('ARRAY','STRUCT','RECORD')
+  WHERE table_name = '${v.tablaOrigen}' AND column_name NOT IN (${pkListOrigen.map(p => `'${p}'`).join(', ')})
+    AND data_type NOT LIKE 'ARRAY%'
+    AND data_type NOT LIKE 'STRUCT%'
+    AND data_type NOT LIKE 'RECORD%'
 ),
 cols_destino AS (
   SELECT column_name,
     (SELECT STRING_AGG(normalizar_sinonimo(w), '_' ORDER BY normalizar_sinonimo(w)) FROM UNNEST(SPLIT(LOWER(column_name), '_')) w WHERE w != '') as norm
   FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
-  WHERE table_name = '${v.tablaDestino}' AND column_name NOT IN (${pkListDestino.map(p => `'${p}'`).join(', ')}) AND data_type NOT IN ('ARRAY','STRUCT','RECORD')
+  WHERE table_name = '${v.tablaDestino}' AND column_name NOT IN (${pkListDestino.map(p => `'${p}'`).join(', ')})
+    AND data_type NOT LIKE 'ARRAY%'
+    AND data_type NOT LIKE 'STRUCT%'
+    AND data_type NOT LIKE 'RECORD%'
 ),
 -- Match exacto + por sin\u00f3nimos
 matches AS (
@@ -7118,7 +7214,9 @@ SET bloque = (
         WHERE table_name  = '${v.tablaOrigen}'
           AND column_name = '${recColOrigen}'
           AND field_path  != '${recColOrigen}'
-          AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD', 'GEOGRAPHY', 'JSON')
+          AND data_type NOT LIKE 'ARRAY%'
+          AND data_type NOT LIKE 'STRUCT%'
+          AND data_type NOT LIKE 'RECORD%'
     ),
     METADATOS_DESTINO AS (
         -- Campos dentro del RECORD del destino (excluye el campo raíz y tipos complejos)
@@ -7127,7 +7225,9 @@ SET bloque = (
         WHERE table_name  = '${v.tablaDestino}'
           AND column_name = '${recColDestino}'
           AND field_path  != '${recColDestino}'
-          AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD', 'GEOGRAPHY', 'JSON')${bytesFilterDestino}
+          AND data_type NOT LIKE 'ARRAY%'
+          AND data_type NOT LIKE 'STRUCT%'
+          AND data_type NOT LIKE 'RECORD%'${bytesFilterDestino}
     ),
     -- Solo campos que existan en AMBAS tablas (excluyendo PKs)
     COLUMNAS_COMUNES AS (
@@ -7234,7 +7334,9 @@ SET bloque = (
         SELECT column_name
         FROM \`${v.proyectoDestino}.${v.datasetDestino}.INFORMATION_SCHEMA.COLUMNS\`
         WHERE table_name = '${v.tablaDestino}'
-          AND data_type NOT IN ('ARRAY', 'STRUCT', 'RECORD', 'GEOGRAPHY', 'JSON')${bytesFilterDestino}
+          AND data_type NOT LIKE 'ARRAY%'
+          AND data_type NOT LIKE 'STRUCT%'
+          AND data_type NOT LIKE 'RECORD%'${bytesFilterDestino}
     ),
     -- Solo columnas que existan en AMBAS tablas (excluyendo PKs)
     COLUMNAS_COMUNES AS (
